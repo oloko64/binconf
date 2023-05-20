@@ -24,7 +24,7 @@ fn main() {
     };
 
     // Save the data
-    binconf::store("binconf-app", Some("config.bin"), config.clone()).unwrap();
+    binconf::store("binconf-app", Some("config.bin"), &config).unwrap();
 
     // Load the data
     let stored = binconf::read::<TestConfig>("binconf-app", Some("config.bin"), false).unwrap();

@@ -103,7 +103,7 @@ where
 /// use binconf::{store, read};
 /// use serde::{Deserialize, Serialize};
 ///
-/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Hash, Clone)]
+/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Hash)]
 /// struct TestConfig {
 ///   test: String,
 ///   test_vec: Vec<u8>,
@@ -114,7 +114,7 @@ where
 ///  test_vec: vec![1, 2, 3, 4, 5],
 /// };
 ///
-/// store("test-binconf-store", None, test_config.clone()).unwrap();
+/// store("test-binconf-store", None, &test_config).unwrap();
 ///
 /// let config = read::<TestConfig>("test-binconf-store", None, false).unwrap();
 /// assert_eq!(config, test_config);
@@ -129,7 +129,7 @@ pub fn store<'a, T>(
     data: T,
 ) -> Result<(), ConfigError>
 where
-    T: Serialize + Hash + DeserializeOwned,
+    T: Serialize + Hash,
 {
     let conf_dir = dirs::config_dir().ok_or(ConfigError::Io(std::io::Error::new(
         std::io::ErrorKind::NotFound,
@@ -158,7 +158,7 @@ struct Config<T> {
     data: T,
 }
 
-impl<'a, T: Hash + Serialize + Deserialize<'a>> Config<T> {
+impl<T: Hash + Serialize> Config<T> {
     fn new(data: T) -> Config<T> {
         let hash = {
             let mut hasher = DefaultHasher::new();
@@ -230,7 +230,7 @@ mod tests {
         store(
             "test-binconf-read_default_config-struct",
             None,
-            test_config.clone(),
+            &test_config,
         )
         .unwrap();
         let config: TestConfig =
@@ -264,7 +264,7 @@ mod tests {
         store(
             "test-binconf-config_with_name-struct",
             Some("test-config.bin"),
-            test_config.clone(),
+            &test_config,
         )
         .unwrap();
         let config: TestConfig = read(
@@ -276,17 +276,16 @@ mod tests {
         assert_eq!(config, test_config);
     }
 
-    // #[test]
-    // fn returns_error_on_invalid_config() {
-    //     let data = TestConfig2 {
-    //         test: 1,
-    //         test_vec: vec![1, 2, 3, 4, 5],
-    //     };
+    #[test]
+    fn returns_error_on_invalid_config() {
+        let data = TestConfig {
+            test: String::from("test"),
+            test_vec: vec![1, 2, 3, 4, 5],
+        };
 
-    //     store("test-binconf-returns_error_on_invalid_config", None, &data).unwrap();
-    //     let config =
-    //         read::<TestConfig3>("test-binconf-panics_on_invalid_config-string", None, false);
+        store("test-binconf-returns_error_on_invalid_config", None, &data).unwrap();
+        let config = read::<String>("test-binconf-returns_error_on_invalid_config", None, false);
 
-    //     assert!(config.unwrap() == TestConfig3::default());
-    // }
+        assert!(config.is_err());
+    }
 }
