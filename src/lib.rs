@@ -200,18 +200,6 @@ mod tests {
         test_vec: Vec<u8>,
     }
 
-    // #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
-    // struct TestConfig2 {
-    //     test: u64,
-    //     test_vec: Vec<u8>,
-    // }
-
-    // #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
-    // struct TestConfig3 {
-    //     vals: Vec<u8>,
-    //     name: String,
-    // }
-
     #[test]
     fn read_default_config() {
         let config =
