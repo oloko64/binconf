@@ -1,6 +1,34 @@
 use serde::{de::DeserializeOwned, Serialize};
 use std::io::BufWriter;
 
+/// Reads a config file from the config directory of the current user.
+///
+/// It will read a config file from the config directory of the current user, deserialize it and return it.
+///
+/// If the flag `reset_conf_on_err` is set to `true`, the config file will be reset to the default config if
+/// the deserialization fails, if set to `false` an error will be returned.
+///
+/// # Example
+///
+/// ```
+/// use binconf::read;
+/// use serde::{Deserialize, Serialize};
+///
+/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
+/// struct TestConfig {
+///    test: String,
+///    test_vec: Vec<u8>,
+/// }
+///
+/// let config: TestConfig = read("test-binconf-read", None, false).unwrap();
+/// assert_eq!(config, TestConfig::default());
+/// ```
+///
+/// # Errors
+///
+/// This function will return an error if the config directory could not be found or created, or if something went wrong while deserializing the config.
+///
+/// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
 pub fn read<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
@@ -48,6 +76,36 @@ where
     Ok(config)
 }
 
+/// Stores a config file in the config directory of the current user.
+///
+/// It will store a config file in the config directory of the current user. Serializing it with the `bincode` crate.
+///
+/// # Example
+///
+/// ```
+/// use binconf::{store, read};
+/// use serde::{Deserialize, Serialize};
+///
+/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
+/// struct TestConfig {
+///   test: String,
+///   test_vec: Vec<u8>,
+/// }
+///
+/// let test_config = TestConfig {
+///  test: String::from("test"),
+///  test_vec: vec![1, 2, 3, 4, 5],
+/// };
+///
+/// store("test-binconf-store", None, &test_config).unwrap();
+///
+/// let config = read::<TestConfig>("test-binconf-store", None, false).unwrap();
+/// assert_eq!(config, test_config);
+/// ```
+///
+/// # Errors
+///
+/// This function will return an error if the config directory could not be found or created, or if something went wrong while serializing the config.
 pub fn store<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
@@ -69,7 +127,7 @@ where
 
     let conf_file = conf_dir.join(config_name.into().unwrap_or(app_name.as_ref()));
 
-    let file = BufWriter::new(std::fs::File::create(&conf_file).map_err(ConfigError::Io)?);
+    let file = BufWriter::new(std::fs::File::create(conf_file).map_err(ConfigError::Io)?);
     bincode::serialize_into(file, &data).map_err(ConfigError::Bincode)?;
 
     Ok(())
@@ -96,14 +154,37 @@ impl std::fmt::Display for ConfigError {
 mod tests {
     use super::*;
 
+    use serde::Deserialize;
+
+    #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
     struct TestConfig {
         test: String,
-        
+        test_vec: Vec<u8>,
     }
 
     #[test]
     fn read_default_config() {
-        let config: String = read("test-binconf", None, false).unwrap();
+        let config =
+            read::<String>("test-binconf-read_default_config-string", None, false).unwrap();
         assert_eq!(config, String::from(""));
+
+        let test_config = TestConfig {
+            test: String::from("test"),
+            test_vec: vec![1, 2, 3, 4, 5],
+        };
+
+        let config: TestConfig =
+            read("test-binconf-read_default_config-struct", None, false).unwrap();
+        assert_eq!(config, TestConfig::default());
+
+        store(
+            "test-binconf-read_default_config-struct",
+            None,
+            &test_config,
+        )
+        .unwrap();
+        let config: TestConfig =
+            read("test-binconf-read_default_config-struct", None, false).unwrap();
+        assert_eq!(config, test_config);
     }
 }
