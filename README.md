@@ -27,7 +27,7 @@ fn main() {
     binconf::store("binconf-app", Some("config.bin"), config.clone()).unwrap();
 
     // Load the data
-    let stored: TestConfig = binconf::read("binconf-app", Some("config.bin"), false).unwrap();
+    let stored = binconf::read::<TestConfig>("binconf-app", Some("config.bin"), false).unwrap();
 
     assert_eq!(stored.strings, config.strings);
     assert_eq!(stored.vecs, config.vecs);
