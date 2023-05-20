@@ -8,6 +8,10 @@ use std::io::BufWriter;
 /// If the flag `reset_conf_on_err` is set to `true`, the config file will be reset to the default config if
 /// the deserialization fails, if set to `false` an error will be returned.
 ///
+/// **As the data is stored in a binary format the deserialization can return incorrect data if the type of the returned data is wrong.**
+///
+/// **Even with the `reset_conf_on_err` set to false it is not guaranteed to always fail if the type is wrong.**
+///
 /// # Example
 ///
 /// ```
@@ -162,6 +166,18 @@ mod tests {
         test_vec: Vec<u8>,
     }
 
+    // #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
+    // struct TestConfig2 {
+    //     test: u64,
+    //     test_vec: Vec<u8>,
+    // }
+
+    // #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
+    // struct TestConfig3 {
+    //     vals: Vec<u8>,
+    //     name: String,
+    // }
+
     #[test]
     fn read_default_config() {
         let config =
@@ -187,4 +203,56 @@ mod tests {
             read("test-binconf-read_default_config-struct", None, false).unwrap();
         assert_eq!(config, test_config);
     }
+
+    #[test]
+    fn config_with_name() {
+        let config = read::<String>(
+            "test-binconf-config_with_name-string",
+            Some("test-config.bin"),
+            false,
+        )
+        .unwrap();
+        assert_eq!(config, String::from(""));
+
+        let test_config = TestConfig {
+            test: String::from("test"),
+            test_vec: vec![1, 2, 3, 4, 5],
+        };
+
+        let config: TestConfig = read(
+            "test-binconf-config_with_name-struct",
+            Some("test-config.bin"),
+            false,
+        )
+        .unwrap();
+        assert_eq!(config, TestConfig::default());
+
+        store(
+            "test-binconf-config_with_name-struct",
+            Some("test-config.bin"),
+            &test_config,
+        )
+        .unwrap();
+        let config: TestConfig = read(
+            "test-binconf-config_with_name-struct",
+            Some("test-config.bin"),
+            false,
+        )
+        .unwrap();
+        assert_eq!(config, test_config);
+    }
+
+    // #[test]
+    // fn returns_error_on_invalid_config() {
+    //     let data = TestConfig2 {
+    //         test: 1,
+    //         test_vec: vec![1, 2, 3, 4, 5],
+    //     };
+
+    //     store("test-binconf-returns_error_on_invalid_config", None, &data).unwrap();
+    //     let config =
+    //         read::<TestConfig3>("test-binconf-panics_on_invalid_config-string", None, false);
+
+    //     assert!(config.unwrap() == TestConfig3::default());
+    // }
 }
