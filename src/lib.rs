@@ -12,10 +12,6 @@ use std::{
 /// If the flag `reset_conf_on_err` is set to `true`, the config file will be reset to the default config if
 /// the deserialization fails, if set to `false` an error will be returned.
 ///
-/// **As the data is stored in a binary format the deserialization can return incorrect data if the type of the returned data is wrong.**
-///
-/// **Even with the `reset_conf_on_err` set to false it is not guaranteed to always fail if the type is wrong.**
-///
 /// # Example
 ///
 /// ```
