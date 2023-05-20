@@ -9,15 +9,15 @@ The config file is saved in your system config directory. On Linux for example i
 ## Usage
 
 ```rust
+use serde::{Deserialize, Serialize};
+
+#[derive(Default, Serialize, Deserialize, Hash, Clone)]
+struct TestConfig {
+    strings: String,
+    vecs: Vec<u8>,
+}
+
 fn main() {
-    use serde::{Deserialize, Serialize};
-
-    #[derive(Default, Serialize, Deserialize, Hash, Clone)]
-    struct TestConfig {
-        strings: String,
-        vecs: Vec<u8>,
-    }
-
     let config = TestConfig {
         strings: String::from("testing"),
         vecs: vec![1, 2, 3, 4, 5],
