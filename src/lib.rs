@@ -18,7 +18,7 @@ use std::{
 /// use binconf::read;
 /// use serde::{Deserialize, Serialize};
 ///
-/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
+/// #[derive(Default, Serialize, Deserialize, PartialEq, Hash, Debug)]
 /// struct TestConfig {
 ///    test: String,
 ///    test_vec: Vec<u8>,
@@ -103,7 +103,7 @@ where
 /// use binconf::{store, read};
 /// use serde::{Deserialize, Serialize};
 ///
-/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Clone)]
+/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Hash, Clone)]
 /// struct TestConfig {
 ///   test: String,
 ///   test_vec: Vec<u8>,
