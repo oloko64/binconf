@@ -1,5 +1,9 @@
-use serde::{de::DeserializeOwned, Serialize};
-use std::io::BufWriter;
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+    io::BufWriter,
+};
 
 /// Reads a config file from the config directory of the current user.
 ///
@@ -39,7 +43,7 @@ pub fn read<'a, T>(
     reset_conf_on_err: bool,
 ) -> Result<T, ConfigError>
 where
-    T: Default + Serialize + DeserializeOwned,
+    T: Default + Serialize + DeserializeOwned + Hash,
 {
     let conf_dir = dirs::config_dir().ok_or(ConfigError::Io(std::io::Error::new(
         std::io::ErrorKind::NotFound,
@@ -54,30 +58,43 @@ where
 
     let conf_file = conf_dir.join(config_name.into().unwrap_or(app_name.as_ref()));
 
-    if !conf_file.try_exists().map_err(ConfigError::Io)? {
-        let default_config = T::default();
+    let save_default_conf = || {
+        let default_config = Config::new(T::default());
         let file = BufWriter::new(std::fs::File::create(&conf_file).map_err(ConfigError::Io)?);
         bincode::serialize_into(file, &default_config).map_err(ConfigError::Bincode)?;
+        Ok(default_config)
+    };
+
+    if !conf_file.try_exists().map_err(ConfigError::Io)? {
+        return save_default_conf().map(|config| config.data);
     }
 
     let file = std::fs::File::open(&conf_file).map_err(ConfigError::Io)?;
     let reader = std::io::BufReader::new(file);
-    let config = match bincode::deserialize_from(reader) {
+    let config: Config<T> = match bincode::deserialize_from(reader) {
         Ok(config) => config,
         Err(err) => {
             if reset_conf_on_err {
-                let default_config = T::default();
-                let file =
-                    BufWriter::new(std::fs::File::create(&conf_file).map_err(ConfigError::Io)?);
-                bincode::serialize_into(file, &default_config).map_err(ConfigError::Bincode)?;
-                default_config
+                save_default_conf()?
             } else {
                 return Err(ConfigError::Bincode(err));
             }
         }
     };
 
-    Ok(config)
+    let mut hasher = DefaultHasher::new();
+    config.data.hash(&mut hasher);
+    let hash = hasher.finish();
+
+    if config.hash != hash {
+        if reset_conf_on_err {
+            let default_config = save_default_conf()?;
+            return Ok(default_config.data);
+        }
+        return Err(ConfigError::HashMismatch);
+    }
+
+    Ok(config.data)
 }
 
 /// Stores a config file in the config directory of the current user.
@@ -90,7 +107,7 @@ where
 /// use binconf::{store, read};
 /// use serde::{Deserialize, Serialize};
 ///
-/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
+/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Clone)]
 /// struct TestConfig {
 ///   test: String,
 ///   test_vec: Vec<u8>,
@@ -101,7 +118,7 @@ where
 ///  test_vec: vec![1, 2, 3, 4, 5],
 /// };
 ///
-/// store("test-binconf-store", None, &test_config).unwrap();
+/// store("test-binconf-store", None, test_config.clone()).unwrap();
 ///
 /// let config = read::<TestConfig>("test-binconf-store", None, false).unwrap();
 /// assert_eq!(config, test_config);
@@ -116,7 +133,7 @@ pub fn store<'a, T>(
     data: T,
 ) -> Result<(), ConfigError>
 where
-    T: Serialize,
+    T: Serialize + Hash + DeserializeOwned,
 {
     let conf_dir = dirs::config_dir().ok_or(ConfigError::Io(std::io::Error::new(
         std::io::ErrorKind::NotFound,
@@ -131,16 +148,36 @@ where
 
     let conf_file = conf_dir.join(config_name.into().unwrap_or(app_name.as_ref()));
 
+    let config_data = Config::new(data);
+
     let file = BufWriter::new(std::fs::File::create(conf_file).map_err(ConfigError::Io)?);
-    bincode::serialize_into(file, &data).map_err(ConfigError::Bincode)?;
+    bincode::serialize_into(file, &config_data).map_err(ConfigError::Bincode)?;
 
     Ok(())
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Config<T> {
+    hash: u64,
+    data: T,
+}
+
+impl<'a, T: Hash + Serialize + Deserialize<'a>> Config<T> {
+    fn new(data: T) -> Config<T> {
+        let hash = {
+            let mut hasher = DefaultHasher::new();
+            data.hash(&mut hasher);
+            hasher.finish()
+        };
+        Config { hash, data }
+    }
 }
 
 #[derive(Debug)]
 pub enum ConfigError {
     Io(std::io::Error),
     Bincode(bincode::Error),
+    HashMismatch,
 }
 
 impl std::error::Error for ConfigError {}
@@ -150,6 +187,7 @@ impl std::fmt::Display for ConfigError {
         match self {
             ConfigError::Io(err) => write!(f, "{err}"),
             ConfigError::Bincode(err) => write!(f, "{err}"),
+            ConfigError::HashMismatch => write!(f, "Hash mismatch"),
         }
     }
 }
@@ -160,7 +198,7 @@ mod tests {
 
     use serde::Deserialize;
 
-    #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
+    #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Hash, Clone)]
     struct TestConfig {
         test: String,
         test_vec: Vec<u8>,
@@ -196,7 +234,7 @@ mod tests {
         store(
             "test-binconf-read_default_config-struct",
             None,
-            &test_config,
+            test_config.clone(),
         )
         .unwrap();
         let config: TestConfig =
@@ -230,7 +268,7 @@ mod tests {
         store(
             "test-binconf-config_with_name-struct",
             Some("test-config.bin"),
-            &test_config,
+            test_config.clone(),
         )
         .unwrap();
         let config: TestConfig = read(
