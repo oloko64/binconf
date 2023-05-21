@@ -1,5 +1,7 @@
 # binconf
 
+[![Binconf Workflow](https://github.com/OLoKo64/binconf/actions/workflows/rust.yml/badge.svg)](https://github.com/OLoKo64/binconf/actions/workflows/rust.yml)
+
 Save and load from a binary configuration file with ease.
 
 The data is hashed ([md-5](https://crates.io/crates/md-5)) during serialization and validated when deserializing, so you can be sure that the data is not corrupted.
