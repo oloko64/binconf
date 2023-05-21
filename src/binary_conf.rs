@@ -178,7 +178,7 @@ mod tests {
     #[test]
     fn read_default_config_bin() {
         let config = load_bin::<String>(
-            "test-binconf-read_default_config-string",
+            "test-binconf-read_default_config-string-bin",
             None,
             Config,
             false,
@@ -192,7 +192,7 @@ mod tests {
         };
 
         let config: TestConfig = load_bin(
-            "test-binconf-read_default_config-struct",
+            "test-binconf-read_default_config-struct-bin",
             None,
             Config,
             false,
@@ -201,14 +201,14 @@ mod tests {
         assert_eq!(config, TestConfig::default());
 
         store_bin(
-            "test-binconf-read_default_config-struct",
+            "test-binconf-read_default_config-struct-bin",
             None,
             Config,
             &test_config,
         )
         .unwrap();
         let config: TestConfig = load_bin(
-            "test-binconf-read_default_config-struct",
+            "test-binconf-read_default_config-struct-bin",
             None,
             Config,
             false,
@@ -220,7 +220,7 @@ mod tests {
     #[test]
     fn config_with_name_bin() {
         let config = load_bin::<String>(
-            "test-binconf-config_with_name-string",
+            "test-binconf-config_with_name-string-bin",
             Some("test-config.bin"),
             Config,
             false,
@@ -234,7 +234,7 @@ mod tests {
         };
 
         let config: TestConfig = load_bin(
-            "test-binconf-config_with_name-struct",
+            "test-binconf-config_with_name-struct-bin",
             Some("test-config.bin"),
             Config,
             false,
@@ -243,14 +243,14 @@ mod tests {
         assert_eq!(config, TestConfig::default());
 
         store_bin(
-            "test-binconf-config_with_name-struct",
+            "test-binconf-config_with_name-struct-bin",
             Some("test-config.bin"),
             Config,
             &test_config,
         )
         .unwrap();
         let config: TestConfig = load_bin(
-            "test-binconf-config_with_name-struct",
+            "test-binconf-config_with_name-struct-bin",
             Some("test-config.bin"),
             Config,
             false,
@@ -267,14 +267,14 @@ mod tests {
         };
 
         store_bin(
-            "test-binconf-returns_error_on_invalid_config",
+            "test-binconf-returns_error_on_invalid_config-bin",
             None,
             Config,
             &data,
         )
         .unwrap();
         let config = load_bin::<String>(
-            "test-binconf-returns_error_on_invalid_config",
+            "test-binconf-returns_error_on_invalid_config-bin",
             None,
             Config,
             false,
@@ -290,9 +290,20 @@ mod tests {
             test_vec: vec![1, 2, 3, 4, 5],
         };
 
-        store_bin("test-binconf-save_config_user_config", None, Config, &data).unwrap();
-        let config: TestConfig =
-            load_bin("test-binconf-save_config_user_config", None, Config, false).unwrap();
+        store_bin(
+            "test-binconf-save_config_user_config-bin",
+            None,
+            Config,
+            &data,
+        )
+        .unwrap();
+        let config: TestConfig = load_bin(
+            "test-binconf-save_config_user_config-bin",
+            None,
+            Config,
+            false,
+        )
+        .unwrap();
         assert_eq!(config, data);
     }
 
@@ -303,9 +314,20 @@ mod tests {
             test_vec: vec![1, 2, 3, 4, 5],
         };
 
-        store_bin("test-binconf-save_config_user_cache", None, Cache, &data).unwrap();
-        let config: TestConfig =
-            load_bin("test-binconf-save_config_user_cache", None, Cache, false).unwrap();
+        store_bin(
+            "test-binconf-save_config_user_cache-bin",
+            None,
+            Cache,
+            &data,
+        )
+        .unwrap();
+        let config: TestConfig = load_bin(
+            "test-binconf-save_config_user_cache-bin",
+            None,
+            Cache,
+            false,
+        )
+        .unwrap();
         assert_eq!(config, data);
     }
 
@@ -317,14 +339,14 @@ mod tests {
         };
 
         store_bin(
-            "test-binconf-save_config_user_local_data",
+            "test-binconf-save_config_user_local_data-bin",
             None,
             LocalData,
             &data,
         )
         .unwrap();
         let config: TestConfig = load_bin(
-            "test-binconf-save_config_user_local_data",
+            "test-binconf-save_config_user_local_data-bin",
             None,
             LocalData,
             false,
