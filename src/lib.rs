@@ -52,7 +52,7 @@ where
     let conf_file = conf_dir.join(config_name.into().unwrap_or(app_name.as_ref()));
 
     let save_default_conf = || {
-        let default_config = Config::new(T::default());
+        let default_config = Config::new(T::default()).map_err(ConfigError::Bincode)?;
         let file = BufWriter::new(std::fs::File::create(&conf_file).map_err(ConfigError::Io)?);
         bincode::serialize_into(file, &default_config).map_err(ConfigError::Bincode)?;
         Ok(default_config)
@@ -141,7 +141,7 @@ where
 
     let conf_file = conf_dir.join(config_name.into().unwrap_or(app_name.as_ref()));
 
-    let config_data = Config::new(data);
+    let config_data = Config::new(data).map_err(ConfigError::Bincode)?;
 
     let file = BufWriter::new(std::fs::File::create(conf_file).map_err(ConfigError::Io)?);
     bincode::serialize_into(file, &config_data).map_err(ConfigError::Bincode)?;
@@ -156,12 +156,12 @@ struct Config<T> {
 }
 
 impl<T: Serialize> Config<T> {
-    fn new(data: T) -> Config<T> {
+    fn new(data: T) -> Result<Config<T>, bincode::Error> {
         let mut hasher = Md5::new();
-        hasher.update(bincode::serialize(&data).unwrap());
+        hasher.update(bincode::serialize(&data)?);
         let hash = format!("{:x}", hasher.finalize());
 
-        Config { hash, data }
+        Ok(Config { hash, data })
     }
 }
 
