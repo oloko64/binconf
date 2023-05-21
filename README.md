@@ -1,8 +1,8 @@
 # binconf
 
-Save and load binary configuration files easily in your application.
+Save and load from a binary configuration file with ease.
 
-The data is hashed during serialization and validated when deserializing, so you can be sure that the data is not corrupted.
+The data is hashed ([md-5](https://crates.io/crates/md-5)) during serialization and validated when deserializing, so you can be sure that the data is not corrupted.
 
 The config file is saved in your system config directory. On Linux for example it is saved in your home directory under `~/.config/<app_name>/<config_name>`.
 
@@ -11,7 +11,7 @@ The config file is saved in your system config directory. On Linux for example i
 ```rust
 use serde::{Deserialize, Serialize};
 
-#[derive(Default, Serialize, Deserialize, Hash, Clone)]
+#[derive(Default, Serialize, Deserialize, Clone)]
 struct TestConfig {
     strings: String,
     vecs: Vec<u8>,

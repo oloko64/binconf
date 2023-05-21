@@ -1,9 +1,6 @@
+use md5::{Digest, Md5};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-    io::BufWriter,
-};
+use std::io::BufWriter;
 
 /// Reads a config file from the config directory of the current user.
 ///
@@ -18,7 +15,7 @@ use std::{
 /// use binconf::read;
 /// use serde::{Deserialize, Serialize};
 ///
-/// #[derive(Default, Serialize, Deserialize, PartialEq, Hash, Debug)]
+/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
 /// struct TestConfig {
 ///    test: String,
 ///    test_vec: Vec<u8>,
@@ -39,7 +36,7 @@ pub fn read<'a, T>(
     reset_conf_on_err: bool,
 ) -> Result<T, ConfigError>
 where
-    T: Default + Serialize + DeserializeOwned + Hash,
+    T: Default + Serialize + DeserializeOwned,
 {
     let conf_dir = dirs::config_dir().ok_or(ConfigError::Io(std::io::Error::new(
         std::io::ErrorKind::NotFound,
@@ -78,9 +75,9 @@ where
         }
     };
 
-    let mut hasher = DefaultHasher::new();
-    config.data.hash(&mut hasher);
-    let hash = hasher.finish();
+    let mut hasher = Md5::new();
+    hasher.update(bincode::serialize(&config.data).map_err(ConfigError::Bincode)?);
+    let hash = format!("{:x}", hasher.finalize());
 
     if config.hash != hash {
         if reset_conf_on_err {
@@ -103,7 +100,7 @@ where
 /// use binconf::{store, read};
 /// use serde::{Deserialize, Serialize};
 ///
-/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Hash)]
+/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
 /// struct TestConfig {
 ///   test: String,
 ///   test_vec: Vec<u8>,
@@ -129,7 +126,7 @@ pub fn store<'a, T>(
     data: T,
 ) -> Result<(), ConfigError>
 where
-    T: Serialize + Hash,
+    T: Serialize,
 {
     let conf_dir = dirs::config_dir().ok_or(ConfigError::Io(std::io::Error::new(
         std::io::ErrorKind::NotFound,
@@ -154,17 +151,16 @@ where
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Config<T> {
-    hash: u64,
+    hash: String,
     data: T,
 }
 
-impl<T: Hash + Serialize> Config<T> {
+impl<T: Serialize> Config<T> {
     fn new(data: T) -> Config<T> {
-        let hash = {
-            let mut hasher = DefaultHasher::new();
-            data.hash(&mut hasher);
-            hasher.finish()
-        };
+        let mut hasher = Md5::new();
+        hasher.update(bincode::serialize(&data).unwrap());
+        let hash = format!("{:x}", hasher.finalize());
+
         Config { hash, data }
     }
 }
@@ -194,7 +190,7 @@ mod tests {
 
     use serde::Deserialize;
 
-    #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Hash, Clone)]
+    #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Clone)]
     struct TestConfig {
         test: String,
         test_vec: Vec<u8>,
