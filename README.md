@@ -10,7 +10,7 @@ The config file is saved in your system config directory. On Linux for example i
 
 ---
 
-You can also save the config using `toml`. You need to enable the `toml` feature for this.
+You can also save the config using `toml`. You need to enable the `toml` feature for this. **(hash validation is not supported for `toml`)**
 
 ### Optional Features
 
