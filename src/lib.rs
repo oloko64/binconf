@@ -40,6 +40,7 @@ fn config_location(
                 "Local data directory not found",
             )))?
         }
+        ConfigLocation::Cwd => std::env::current_dir().map_err(ConfigError::Io)?,
     };
 
     let conf_dir = conf_dir.join(app_name);
@@ -58,6 +59,7 @@ pub enum ConfigLocation {
     Config,
     Cache,
     LocalData,
+    Cwd,
 }
 
 impl AsRef<ConfigLocation> for ConfigLocation {

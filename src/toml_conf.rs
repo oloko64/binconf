@@ -138,7 +138,7 @@ mod tests {
     use super::*;
 
     use serde::Deserialize;
-    use ConfigLocation::{Cache, Config, LocalData};
+    use ConfigLocation::{Cache, Config, Cwd, LocalData};
 
     #[derive(Default, serde::Serialize, Deserialize, PartialEq, Debug, Clone)]
     struct TestConfig {
@@ -323,6 +323,19 @@ mod tests {
             false,
         )
         .unwrap();
+        assert_eq!(config, data);
+    }
+
+    #[test]
+    fn save_config_user_cwd_toml() {
+        let data = TestConfig {
+            test: String::from("test"),
+            test_vec: vec![1, 2, 3, 4, 5],
+        };
+
+        store_toml("test-binconf-save_config_user_cwd-bin", None, Cwd, &data).unwrap();
+        let config: TestConfig =
+            load_toml("test-binconf-save_config_user_cwd-bin", None, Cwd, false).unwrap();
         assert_eq!(config, data);
     }
 }
