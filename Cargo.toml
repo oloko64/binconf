@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["OLoKo64 <reinaldorozatoj.11cg1@aleeas.com>"]
 description = "Save and load from a binary configuration file with ease."
 categories = ["config"]
-keywords = ["hash", "binary", "config", "hasher", "configuration"]
+keywords = ["hash", "binary", "config", "hasher", "configuration", "toml"]
 repository = "https://github.com/OLoKo64/binconf"
 license = "MIT"
 readme = "README.md"
@@ -13,7 +13,7 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["binary_conf"]
+default = ["toml_conf", "binary_conf"]
 binary_conf = ["bincode", "md-5"]
 toml_conf = ["toml"]
 

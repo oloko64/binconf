@@ -132,3 +132,197 @@ where
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use serde::Deserialize;
+    use ConfigLocation::{Cache, Config, LocalData};
+
+    #[derive(Default, serde::Serialize, Deserialize, PartialEq, Debug, Clone)]
+    struct TestConfig {
+        test: String,
+        test_vec: Vec<u8>,
+    }
+
+    #[test]
+    fn read_default_config_toml() {
+        let config = load_toml::<String>(
+            "test-binconf-read_default_config-string-toml",
+            None,
+            Config,
+            false,
+        )
+        .unwrap();
+        assert_eq!(config, String::from(""));
+
+        let test_config = TestConfig {
+            test: String::from("test"),
+            test_vec: vec![1, 2, 3, 4, 5],
+        };
+
+        let config: TestConfig = load_toml(
+            "test-binconf-read_default_config-struct-toml",
+            None,
+            Config,
+            false,
+        )
+        .unwrap();
+        assert_eq!(config, TestConfig::default());
+
+        store_toml(
+            "test-binconf-read_default_config-struct-toml",
+            None,
+            Config,
+            &test_config,
+        )
+        .unwrap();
+        let config: TestConfig = load_toml(
+            "test-binconf-read_default_config-struct-toml",
+            None,
+            Config,
+            false,
+        )
+        .unwrap();
+        assert_eq!(config, test_config);
+    }
+
+    #[test]
+    fn config_with_name_toml() {
+        let config = load_toml::<String>(
+            "test-binconf-config_with_name-string-toml",
+            Some("test-config.toml"),
+            Config,
+            false,
+        )
+        .unwrap();
+        assert_eq!(config, String::from(""));
+
+        let test_config = TestConfig {
+            test: String::from("test"),
+            test_vec: vec![1, 2, 3, 4, 5],
+        };
+
+        let config: TestConfig = load_toml(
+            "test-binconf-config_with_name-struct-toml",
+            Some("test-config.toml"),
+            Config,
+            false,
+        )
+        .unwrap();
+        assert_eq!(config, TestConfig::default());
+
+        store_toml(
+            "test-binconf-config_with_name-struct-toml",
+            Some("test-config.toml"),
+            Config,
+            &test_config,
+        )
+        .unwrap();
+        let config: TestConfig = load_toml(
+            "test-binconf-config_with_name-struct-toml",
+            Some("test-config.toml"),
+            Config,
+            false,
+        )
+        .unwrap();
+        assert_eq!(config, test_config);
+    }
+
+    #[test]
+    fn returns_error_on_invalid_config_toml() {
+        let data = TestConfig {
+            test: String::from("test"),
+            test_vec: vec![1, 2, 3, 4, 5],
+        };
+
+        store_toml(
+            "test-binconf-returns_error_on_invalid_config-toml",
+            None,
+            Config,
+            &data,
+        )
+        .unwrap();
+        let config = load_toml::<String>(
+            "test-binconf-returns_error_on_invalid_config-toml",
+            None,
+            Config,
+            false,
+        );
+
+        assert!(config.is_err());
+    }
+
+    #[test]
+    fn save_config_user_config_toml() {
+        let data = TestConfig {
+            test: String::from("test"),
+            test_vec: vec![1, 2, 3, 4, 5],
+        };
+
+        store_toml(
+            "test-binconf-save_config_user_config-toml",
+            None,
+            Config,
+            &data,
+        )
+        .unwrap();
+        let config: TestConfig = load_toml(
+            "test-binconf-save_config_user_config-toml",
+            None,
+            Config,
+            false,
+        )
+        .unwrap();
+        assert_eq!(config, data);
+    }
+
+    #[test]
+    fn save_config_user_cache_toml() {
+        let data = TestConfig {
+            test: String::from("test"),
+            test_vec: vec![1, 2, 3, 4, 5],
+        };
+
+        store_toml(
+            "test-binconf-save_config_user_cache-toml",
+            None,
+            Cache,
+            &data,
+        )
+        .unwrap();
+        let config: TestConfig = load_toml(
+            "test-binconf-save_config_user_cache-toml",
+            None,
+            Cache,
+            false,
+        )
+        .unwrap();
+        assert_eq!(config, data);
+    }
+
+    #[test]
+    fn save_config_user_local_data_toml() {
+        let data = TestConfig {
+            test: String::from("test"),
+            test_vec: vec![1, 2, 3, 4, 5],
+        };
+
+        store_toml(
+            "test-binconf-save_config_user_local_data-toml",
+            None,
+            LocalData,
+            &data,
+        )
+        .unwrap();
+        let config: TestConfig = load_toml(
+            "test-binconf-save_config_user_local_data-toml",
+            None,
+            LocalData,
+            false,
+        )
+        .unwrap();
+        assert_eq!(config, data);
+    }
+}

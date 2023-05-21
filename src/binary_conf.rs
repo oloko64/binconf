@@ -176,7 +176,7 @@ mod tests {
     }
 
     #[test]
-    fn read_default_config() {
+    fn read_default_config_bin() {
         let config = load_bin::<String>(
             "test-binconf-read_default_config-string",
             None,
@@ -218,7 +218,7 @@ mod tests {
     }
 
     #[test]
-    fn config_with_name() {
+    fn config_with_name_bin() {
         let config = load_bin::<String>(
             "test-binconf-config_with_name-string",
             Some("test-config.bin"),
@@ -260,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    fn returns_error_on_invalid_config() {
+    fn returns_error_on_invalid_config_bin() {
         let data = TestConfig {
             test: String::from("test"),
             test_vec: vec![1, 2, 3, 4, 5],
@@ -284,7 +284,7 @@ mod tests {
     }
 
     #[test]
-    fn save_config_user_config() {
+    fn save_config_user_config_bin() {
         let data = TestConfig {
             test: String::from("test"),
             test_vec: vec![1, 2, 3, 4, 5],
@@ -297,7 +297,7 @@ mod tests {
     }
 
     #[test]
-    fn save_config_user_cache() {
+    fn save_config_user_cache_bin() {
         let data = TestConfig {
             test: String::from("test"),
             test_vec: vec![1, 2, 3, 4, 5],
@@ -310,7 +310,7 @@ mod tests {
     }
 
     #[test]
-    fn save_config_user_local_data() {
+    fn save_config_user_local_data_bin() {
         let data = TestConfig {
             test: String::from("test"),
             test_vec: vec![1, 2, 3, 4, 5],
