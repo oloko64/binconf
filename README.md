@@ -8,6 +8,27 @@ The data is hashed ([md-5](https://crates.io/crates/md-5)) during serialization 
 
 The config file is saved in your system config directory. On Linux for example it is saved in your home directory under `~/.config/<app_name>/<config_name>`.
 
+---
+
+You can also save the config using `toml`. You need to enable the `toml` feature for this.
+
+### Optional Features
+
+- `full`: Enables all features. This gives you the ability to save and load using `toml` as well as `bincode`.
+- `toml`: Enables saving and loading using `toml` instead of `bincode`.
+
+### Disabling Default Features
+
+If you want to only use `toml` you can disable the default features and enable the `toml` feature.
+
+```
+[dependencies.binconf]
+features = ["toml"]
+default-features = false
+```
+
+---
+
 ## Usage
 
 ```rust

@@ -13,9 +13,10 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["binary_conf"]
-binary_conf = ["bincode", "md-5"]
-toml_conf = ["toml"]
+default = ["binary-conf"]
+full = ["binary-conf", "toml-conf"]
+binary-conf = ["bincode", "md-5"]
+toml-conf = ["toml"]
 
 [dependencies]
 bincode = { version = "1.3.3", optional = true }

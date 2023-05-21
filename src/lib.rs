@@ -1,15 +1,15 @@
-#[cfg(feature = "binary_conf")]
+#[cfg(feature = "binary-conf")]
 mod binary_conf;
-#[cfg(feature = "toml_conf")]
+#[cfg(feature = "toml-conf")]
 mod toml_conf;
 
-use std::path::PathBuf;
-
-#[cfg(feature = "binary_conf")]
+#[cfg(feature = "binary-conf")]
 pub use binary_conf::{load_bin, store_bin};
 
-#[cfg(feature = "toml_conf")]
+#[cfg(feature = "toml-conf")]
 pub use toml_conf::{load_toml, store_toml};
+
+use std::path::PathBuf;
 
 /// Prepares the path to the config file.
 ///
@@ -70,13 +70,13 @@ impl AsRef<ConfigLocation> for ConfigLocation {
 pub enum ConfigError {
     Io(std::io::Error),
 
-    #[cfg(feature = "toml_conf")]
+    #[cfg(feature = "toml-conf")]
     TomlSer(toml::ser::Error),
 
-    #[cfg(feature = "toml_conf")]
+    #[cfg(feature = "toml-conf")]
     TomlDe(toml::de::Error),
 
-    #[cfg(feature = "binary_conf")]
+    #[cfg(feature = "binary-conf")]
     Bincode(bincode::Error),
 
     HashMismatch,
@@ -89,13 +89,13 @@ impl std::fmt::Display for ConfigError {
         match self {
             ConfigError::Io(err) => write!(f, "{err}"),
 
-            #[cfg(feature = "binary_conf")]
+            #[cfg(feature = "binary-conf")]
             ConfigError::Bincode(err) => write!(f, "{err}"),
 
-            #[cfg(feature = "toml_conf")]
+            #[cfg(feature = "toml-conf")]
             ConfigError::TomlSer(err) => write!(f, "{err}"),
 
-            #[cfg(feature = "toml_conf")]
+            #[cfg(feature = "toml-conf")]
             ConfigError::TomlDe(err) => write!(f, "{err}"),
 
             ConfigError::HashMismatch => write!(f, "Hash mismatch"),

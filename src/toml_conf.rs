@@ -148,14 +148,14 @@ mod tests {
 
     #[test]
     fn read_default_config_toml() {
-        let config = load_toml::<String>(
+        let config = load_toml::<TestConfig>(
             "test-binconf-read_default_config-string-toml",
             None,
             Config,
             false,
         )
         .unwrap();
-        assert_eq!(config, String::from(""));
+        assert_eq!(config, TestConfig::default());
 
         let test_config = TestConfig {
             test: String::from("test"),
@@ -190,14 +190,14 @@ mod tests {
 
     #[test]
     fn config_with_name_toml() {
-        let config = load_toml::<String>(
+        let config = load_toml::<TestConfig>(
             "test-binconf-config_with_name-string-toml",
             Some("test-config.toml"),
             Config,
             false,
         )
         .unwrap();
-        assert_eq!(config, String::from(""));
+        assert_eq!(config, TestConfig::default());
 
         let test_config = TestConfig {
             test: String::from("test"),
