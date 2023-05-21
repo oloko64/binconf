@@ -1,7 +1,36 @@
-#[cfg(feature = "toml_conf")]
 use crate::{ConfigError, ConfigLocation};
+use std::{fs::read_to_string, io::Write};
 
-#[cfg(feature = "toml_conf")]
+const TOML_EXTENSION: &str = "toml";
+
+/// Reads a config file from the config, cache or local data directory of the current user.
+///
+/// It will load a config file, deserialize it and return it.
+///
+/// If the flag `reset_conf_on_err` is set to `true`, the config file will be reset to the default config if
+/// the deserialization fails, if set to `false` an error will be returned.
+///
+/// # Example
+///
+/// ```
+/// use binconf::ConfigLocation::{Cache, Config, LocalData};
+/// use serde::{Deserialize, Serialize};
+///
+/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
+/// struct TestConfig {
+///    test: String,
+///    test_vec: Vec<u8>,
+/// }
+///
+/// let config = binconf::load_toml::<TestConfig>("test-binconf-read-toml", None, Config, false).unwrap();
+/// assert_eq!(config, TestConfig::default());
+/// ```
+///
+/// # Errors
+///
+/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while deserializing the config.
+///
+/// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
 pub fn load_toml<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
@@ -11,12 +40,10 @@ pub fn load_toml<'a, T>(
 where
     T: Default + serde::Serialize + serde::de::DeserializeOwned,
 {
-    use std::{fs::read_to_string, io::Write};
-
     let config_file_path = crate::config_location(
         app_name.as_ref(),
         config_name.into(),
-        "toml",
+        TOML_EXTENSION,
         location.as_ref(),
     )?;
 
@@ -49,7 +76,36 @@ where
     Ok(config)
 }
 
-#[cfg(feature = "toml_conf")]
+/// Stores a config file in the config, cache or local data directory of the current user.
+///
+/// It will store a config file, serializing it with the `toml` crate.
+///
+/// # Example
+///
+/// ```
+/// use binconf::ConfigLocation::{Cache, Config, LocalData};
+/// use serde::{Deserialize, Serialize};
+///
+/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
+/// struct TestConfig {
+///   test: String,
+///   test_vec: Vec<u8>,
+/// }
+///
+/// let test_config = TestConfig {
+///  test: String::from("test-toml"),
+///  test_vec: vec![1, 2, 3, 4, 5],
+/// };
+///
+/// binconf::store_toml("test-binconf-store-toml", None, Config, &test_config).unwrap();
+///
+/// let config = binconf::load_toml::<TestConfig>("test-binconf-store-toml", None, Config, false).unwrap();
+/// assert_eq!(config, test_config);
+/// ```
+///
+/// # Errors
+///
+/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while serializing the config.
 pub fn store_toml<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
@@ -59,12 +115,10 @@ pub fn store_toml<'a, T>(
 where
     T: serde::Serialize,
 {
-    use std::io::Write;
-
     let config_file_path = crate::config_location(
         app_name.as_ref(),
         config_name.into(),
-        "toml",
+        TOML_EXTENSION,
         location.as_ref(),
     )?;
 

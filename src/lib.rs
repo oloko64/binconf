@@ -1,4 +1,6 @@
+#[cfg(feature = "binary_conf")]
 mod binary_conf;
+#[cfg(feature = "toml_conf")]
 mod toml_conf;
 
 use std::path::PathBuf;
@@ -9,6 +11,15 @@ pub use binary_conf::{load_bin, store_bin};
 #[cfg(feature = "toml_conf")]
 pub use toml_conf::{load_toml, store_toml};
 
+/// Prepares the path to the config file.
+///
+/// It will decide where to store the config file based on the `location` parameter.
+///
+/// If the path to the config file does not exist, it will create the path.
+///
+/// Returns the path to the config file with the given extension.
+///
+/// **The function does not guarantee that the file exists. Just that the path to the file exists.**
 fn config_location(
     app_name: &str,
     config_name: Option<&str>,
@@ -67,6 +78,7 @@ pub enum ConfigError {
 
     #[cfg(feature = "binary_conf")]
     Bincode(bincode::Error),
+
     HashMismatch,
 }
 

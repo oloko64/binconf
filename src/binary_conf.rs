@@ -1,8 +1,8 @@
-#[cfg(feature = "binary_conf")]
 use md5::{Digest, Md5};
 
-#[cfg(feature = "binary_conf")]
 use crate::{ConfigError, ConfigLocation};
+
+const BIN_EXTENSION: &str = "bin";
 
 /// Reads a config file from the config, cache or local data directory of the current user.
 ///
@@ -23,7 +23,7 @@ use crate::{ConfigError, ConfigLocation};
 ///    test_vec: Vec<u8>,
 /// }
 ///
-/// let config = binconf::load_bin::<TestConfig>("test-binconf-read", None, Config, false).unwrap();
+/// let config = binconf::load_bin::<TestConfig>("test-binconf-read-bin", None, Config, false).unwrap();
 /// assert_eq!(config, TestConfig::default());
 /// ```
 ///
@@ -32,7 +32,7 @@ use crate::{ConfigError, ConfigLocation};
 /// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while deserializing the config.
 ///
 /// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
-#[cfg(feature = "binary_conf")]
+
 pub fn load_bin<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
@@ -45,7 +45,7 @@ where
     let config_file_path = crate::config_location(
         app_name.as_ref(),
         config_name.into(),
-        "bin",
+        BIN_EXTENSION,
         location.as_ref(),
     )?;
 
@@ -107,20 +107,20 @@ where
 /// }
 ///
 /// let test_config = TestConfig {
-///  test: String::from("test"),
+///  test: String::from("test-bin"),
 ///  test_vec: vec![1, 2, 3, 4, 5],
 /// };
 ///
-/// binconf::store_bin("test-binconf-store", None, Config, &test_config).unwrap();
+/// binconf::store_bin("test-binconf-store-bin", None, Config, &test_config).unwrap();
 ///
-/// let config = binconf::load_bin::<TestConfig>("test-binconf-store", None, Config, false).unwrap();
+/// let config = binconf::load_bin::<TestConfig>("test-binconf-store-bin", None, Config, false).unwrap();
 /// assert_eq!(config, test_config);
 /// ```
 ///
 /// # Errors
 ///
 /// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while serializing the config.
-#[cfg(feature = "binary_conf")]
+
 pub fn store_bin<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
@@ -133,7 +133,7 @@ where
     let config_file_path = crate::config_location(
         app_name.as_ref(),
         config_name.into(),
-        "bin",
+        BIN_EXTENSION,
         location.as_ref(),
     )?;
 
@@ -146,14 +146,12 @@ where
     Ok(())
 }
 
-#[cfg(feature = "binary_conf")]
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 struct Config<T> {
     hash: String,
     data: T,
 }
 
-#[cfg(feature = "binary_conf")]
 impl<T: serde::Serialize> Config<T> {
     fn new(data: T) -> Result<Config<T>, bincode::Error> {
         let mut hasher = Md5::new();
@@ -164,7 +162,6 @@ impl<T: serde::Serialize> Config<T> {
     }
 }
 
-#[cfg(feature = "binary_conf")]
 #[cfg(test)]
 mod tests {
     use super::*;
