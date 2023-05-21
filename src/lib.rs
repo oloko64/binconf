@@ -109,7 +109,7 @@ where
 /// # Example
 ///
 /// ```
-/// use binconf::{store, read};
+/// use binconf::ConfigLocation::{Cache, Config, LocalData};
 /// use serde::{Deserialize, Serialize};
 ///
 /// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
@@ -123,9 +123,9 @@ where
 ///  test_vec: vec![1, 2, 3, 4, 5],
 /// };
 ///
-/// store("test-binconf-store", None, &test_config).unwrap();
+/// binconf::store("test-binconf-store", None, Config, &test_config).unwrap();
 ///
-/// let config = read::<TestConfig>("test-binconf-store", None, false).unwrap();
+/// let config = binconf::load::<TestConfig>("test-binconf-store", None, Config, false).unwrap();
 /// assert_eq!(config, test_config);
 /// ```
 ///
