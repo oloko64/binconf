@@ -49,6 +49,7 @@ where
     Ok(config)
 }
 
+#[cfg(feature = "toml_conf")]
 pub fn store_toml<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
