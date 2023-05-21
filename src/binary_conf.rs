@@ -1,8 +1,8 @@
+#[cfg(feature = "binary_conf")]
 use md5::{Digest, Md5};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::io::BufWriter;
 
-use crate::ConfigLocation;
+#[cfg(feature = "binary_conf")]
+use crate::{ConfigError, ConfigLocation};
 
 /// Reads a config file from the config, cache or local data directory of the current user.
 ///
@@ -23,7 +23,7 @@ use crate::ConfigLocation;
 ///    test_vec: Vec<u8>,
 /// }
 ///
-/// let config = binconf::load::<TestConfig>("test-binconf-read", None, Config, false).unwrap();
+/// let config = binconf::load_bin::<TestConfig>("test-binconf-read", None, Config, false).unwrap();
 /// assert_eq!(config, TestConfig::default());
 /// ```
 ///
@@ -32,51 +32,37 @@ use crate::ConfigLocation;
 /// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while deserializing the config.
 ///
 /// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
-pub fn load<'a, T>(
+#[cfg(feature = "binary_conf")]
+pub fn load_bin<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
     location: impl AsRef<ConfigLocation>,
     reset_conf_on_err: bool,
 ) -> Result<T, ConfigError>
 where
-    T: Default + Serialize + DeserializeOwned,
+    T: Default + serde::Serialize + serde::de::DeserializeOwned,
 {
-    let conf_dir = match location.as_ref() {
-        ConfigLocation::Config => dirs::config_dir().ok_or(ConfigError::Io(
-            std::io::Error::new(std::io::ErrorKind::NotFound, "Config directory not found"),
-        ))?,
-        ConfigLocation::Cache => dirs::cache_dir().ok_or(ConfigError::Io(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "Cache directory not found",
-        )))?,
-        ConfigLocation::LocalData => {
-            dirs::data_local_dir().ok_or(ConfigError::Io(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "Local data directory not found",
-            )))?
-        }
-    };
-
-    let conf_dir = conf_dir.join(app_name.as_ref());
-
-    if !conf_dir.try_exists().map_err(ConfigError::Io)? {
-        std::fs::create_dir_all(&conf_dir).map_err(ConfigError::Io)?;
-    }
-
-    let conf_file = conf_dir.join(config_name.into().unwrap_or(app_name.as_ref()));
+    let config_file_path = crate::config_location(
+        app_name.as_ref(),
+        config_name.into(),
+        "bin",
+        location.as_ref(),
+    )?;
 
     let save_default_conf = || {
         let default_config = Config::new(T::default()).map_err(ConfigError::Bincode)?;
-        let file = BufWriter::new(std::fs::File::create(&conf_file).map_err(ConfigError::Io)?);
+        let file = std::io::BufWriter::new(
+            std::fs::File::create(&config_file_path).map_err(ConfigError::Io)?,
+        );
         bincode::serialize_into(file, &default_config).map_err(ConfigError::Bincode)?;
         Ok(default_config)
     };
 
-    if !conf_file.try_exists().map_err(ConfigError::Io)? {
+    if !config_file_path.try_exists().map_err(ConfigError::Io)? {
         return save_default_conf().map(|config| config.data);
     }
 
-    let file = std::fs::File::open(&conf_file).map_err(ConfigError::Io)?;
+    let file = std::fs::File::open(&config_file_path).map_err(ConfigError::Io)?;
     let reader = std::io::BufReader::new(file);
     let config: Config<T> = match bincode::deserialize_from(reader) {
         Ok(config) => config,
@@ -125,63 +111,50 @@ where
 ///  test_vec: vec![1, 2, 3, 4, 5],
 /// };
 ///
-/// binconf::store("test-binconf-store", None, Config, &test_config).unwrap();
+/// binconf::store_bin("test-binconf-store", None, Config, &test_config).unwrap();
 ///
-/// let config = binconf::load::<TestConfig>("test-binconf-store", None, Config, false).unwrap();
+/// let config = binconf::load_bin::<TestConfig>("test-binconf-store", None, Config, false).unwrap();
 /// assert_eq!(config, test_config);
 /// ```
 ///
 /// # Errors
 ///
 /// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while serializing the config.
-pub fn store<'a, T>(
+#[cfg(feature = "binary_conf")]
+pub fn store_bin<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
     location: impl AsRef<ConfigLocation>,
     data: T,
 ) -> Result<(), ConfigError>
 where
-    T: Serialize,
+    T: serde::Serialize,
 {
-    let conf_dir = match location.as_ref() {
-        ConfigLocation::Config => dirs::config_dir().ok_or(ConfigError::Io(
-            std::io::Error::new(std::io::ErrorKind::NotFound, "Config directory not found"),
-        ))?,
-        ConfigLocation::Cache => dirs::cache_dir().ok_or(ConfigError::Io(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "Cache directory not found",
-        )))?,
-        ConfigLocation::LocalData => {
-            dirs::data_local_dir().ok_or(ConfigError::Io(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "Local data directory not found",
-            )))?
-        }
-    };
-
-    let conf_dir = conf_dir.join(app_name.as_ref());
-
-    if !conf_dir.try_exists().map_err(ConfigError::Io)? {
-        std::fs::create_dir_all(&conf_dir).map_err(ConfigError::Io)?;
-    }
-
-    let conf_file = conf_dir.join(config_name.into().unwrap_or(app_name.as_ref()));
+    let config_file_path = crate::config_location(
+        app_name.as_ref(),
+        config_name.into(),
+        "bin",
+        location.as_ref(),
+    )?;
 
     let config_data = Config::new(data).map_err(ConfigError::Bincode)?;
 
-    let file = BufWriter::new(std::fs::File::create(conf_file).map_err(ConfigError::Io)?);
+    let file =
+        std::io::BufWriter::new(std::fs::File::create(config_file_path).map_err(ConfigError::Io)?);
     bincode::serialize_into(file, &config_data).map_err(ConfigError::Bincode)?;
 
     Ok(())
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg(feature = "binary_conf")]
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
 struct Config<T> {
     hash: String,
     data: T,
 }
 
-impl<T: Serialize> Config<T> {
+#[cfg(feature = "binary_conf")]
+impl<T: serde::Serialize> Config<T> {
     fn new(data: T) -> Result<Config<T>, bincode::Error> {
         let mut hasher = Md5::new();
         hasher.update(bincode::serialize(&data)?);
@@ -191,25 +164,7 @@ impl<T: Serialize> Config<T> {
     }
 }
 
-#[derive(Debug)]
-pub enum ConfigError {
-    Io(std::io::Error),
-    Bincode(bincode::Error),
-    HashMismatch,
-}
-
-impl std::error::Error for ConfigError {}
-
-impl std::fmt::Display for ConfigError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            ConfigError::Io(err) => write!(f, "{err}"),
-            ConfigError::Bincode(err) => write!(f, "{err}"),
-            ConfigError::HashMismatch => write!(f, "Hash mismatch"),
-        }
-    }
-}
-
+#[cfg(feature = "binary_conf")]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -217,7 +172,7 @@ mod tests {
     use serde::Deserialize;
     use ConfigLocation::{Cache, Config, LocalData};
 
-    #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Clone)]
+    #[derive(Default, serde::Serialize, Deserialize, PartialEq, Debug, Clone)]
     struct TestConfig {
         test: String,
         test_vec: Vec<u8>,
@@ -225,7 +180,7 @@ mod tests {
 
     #[test]
     fn read_default_config() {
-        let config = load::<String>(
+        let config = load_bin::<String>(
             "test-binconf-read_default_config-string",
             None,
             Config,
@@ -239,7 +194,7 @@ mod tests {
             test_vec: vec![1, 2, 3, 4, 5],
         };
 
-        let config: TestConfig = load(
+        let config: TestConfig = load_bin(
             "test-binconf-read_default_config-struct",
             None,
             Config,
@@ -248,14 +203,14 @@ mod tests {
         .unwrap();
         assert_eq!(config, TestConfig::default());
 
-        store(
+        store_bin(
             "test-binconf-read_default_config-struct",
             None,
             Config,
             &test_config,
         )
         .unwrap();
-        let config: TestConfig = load(
+        let config: TestConfig = load_bin(
             "test-binconf-read_default_config-struct",
             None,
             Config,
@@ -267,7 +222,7 @@ mod tests {
 
     #[test]
     fn config_with_name() {
-        let config = load::<String>(
+        let config = load_bin::<String>(
             "test-binconf-config_with_name-string",
             Some("test-config.bin"),
             Config,
@@ -281,7 +236,7 @@ mod tests {
             test_vec: vec![1, 2, 3, 4, 5],
         };
 
-        let config: TestConfig = load(
+        let config: TestConfig = load_bin(
             "test-binconf-config_with_name-struct",
             Some("test-config.bin"),
             Config,
@@ -290,14 +245,14 @@ mod tests {
         .unwrap();
         assert_eq!(config, TestConfig::default());
 
-        store(
+        store_bin(
             "test-binconf-config_with_name-struct",
             Some("test-config.bin"),
             Config,
             &test_config,
         )
         .unwrap();
-        let config: TestConfig = load(
+        let config: TestConfig = load_bin(
             "test-binconf-config_with_name-struct",
             Some("test-config.bin"),
             Config,
@@ -314,14 +269,14 @@ mod tests {
             test_vec: vec![1, 2, 3, 4, 5],
         };
 
-        store(
+        store_bin(
             "test-binconf-returns_error_on_invalid_config",
             None,
             Config,
             &data,
         )
         .unwrap();
-        let config = load::<String>(
+        let config = load_bin::<String>(
             "test-binconf-returns_error_on_invalid_config",
             None,
             Config,
@@ -338,9 +293,9 @@ mod tests {
             test_vec: vec![1, 2, 3, 4, 5],
         };
 
-        store("test-binconf-save_config_user_config", None, Config, &data).unwrap();
+        store_bin("test-binconf-save_config_user_config", None, Config, &data).unwrap();
         let config: TestConfig =
-            load("test-binconf-save_config_user_config", None, Config, false).unwrap();
+            load_bin("test-binconf-save_config_user_config", None, Config, false).unwrap();
         assert_eq!(config, data);
     }
 
@@ -351,9 +306,9 @@ mod tests {
             test_vec: vec![1, 2, 3, 4, 5],
         };
 
-        store("test-binconf-save_config_user_cache", None, Cache, &data).unwrap();
+        store_bin("test-binconf-save_config_user_cache", None, Cache, &data).unwrap();
         let config: TestConfig =
-            load("test-binconf-save_config_user_cache", None, Cache, false).unwrap();
+            load_bin("test-binconf-save_config_user_cache", None, Cache, false).unwrap();
         assert_eq!(config, data);
     }
 
@@ -364,14 +319,14 @@ mod tests {
             test_vec: vec![1, 2, 3, 4, 5],
         };
 
-        store(
+        store_bin(
             "test-binconf-save_config_user_local_data",
             None,
             LocalData,
             &data,
         )
         .unwrap();
-        let config: TestConfig = load(
+        let config: TestConfig = load_bin(
             "test-binconf-save_config_user_local_data",
             None,
             LocalData,
