@@ -11,6 +11,7 @@ The config file is saved in your system config directory. On Linux for example i
 ## Usage
 
 ```rust
+use binconf::ConfigLocation::{Cache, Config, LocalData};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Serialize, Deserialize, Clone)]
@@ -25,11 +26,12 @@ fn main() {
         vecs: vec![1, 2, 3, 4, 5],
     };
 
-    // Save the data
-    binconf::store("binconf-app", Some("config.bin"), &config).unwrap();
+    // Save the data at the user's config directory
+    binconf::store("binconf-app", Some("config.bin"), Config, &config).unwrap();
 
-    // Load the data
-    let stored = binconf::read::<TestConfig>("binconf-app", Some("config.bin"), false).unwrap();
+    // Load the data from the user's config directory
+    let stored =
+        binconf::load::<TestConfig>("binconf-app", Some("config.bin"), Config, false).unwrap();
 
     assert_eq!(stored.strings, config.strings);
     assert_eq!(stored.vecs, config.vecs);
