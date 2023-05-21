@@ -13,7 +13,7 @@ const TOML_EXTENSION: &str = "toml";
 /// # Example
 ///
 /// ```
-/// use binconf::ConfigLocation::{Cache, Config, LocalData};
+/// use binconf::ConfigLocation::{Cache, Config, LocalData, Cwd};
 /// use serde::{Deserialize, Serialize};
 ///
 /// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
@@ -83,7 +83,7 @@ where
 /// # Example
 ///
 /// ```
-/// use binconf::ConfigLocation::{Cache, Config, LocalData};
+/// use binconf::ConfigLocation::{Cache, Config, LocalData, Cwd};
 /// use serde::{Deserialize, Serialize};
 ///
 /// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]

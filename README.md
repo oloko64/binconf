@@ -32,7 +32,7 @@ default-features = false
 ## Usage
 
 ```rust
-use binconf::ConfigLocation::{Cache, Config, LocalData};
+use binconf::ConfigLocation::{Cache, Config, LocalData, Cwd};
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Serialize, Deserialize, Clone)]
