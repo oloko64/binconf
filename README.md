@@ -53,11 +53,11 @@ fn main() {
     };
 
     // Save the data at the user's config directory
-    binconf::store("binconf-app", Some("config.bin"), Config, &config).unwrap();
+    binconf::store_bin("binconf-app", Some("config.bin"), Config, &config).unwrap();
 
     // Load the data from the user's config directory
     let stored =
-        binconf::load::<TestConfig>("binconf-app", Some("config.bin"), Config, false).unwrap();
+        binconf::load_bin::<TestConfig>("binconf-app", Some("config.bin"), Config, false).unwrap();
 
     assert_eq!(stored.strings, config.strings);
     assert_eq!(stored.vecs, config.vecs);
