@@ -49,12 +49,8 @@ where
 
     let save_default_conf = || {
         let default_config = T::default();
-        let mut file = std::io::BufWriter::new(
-            std::fs::File::create(&config_file_path).map_err(ConfigError::Io)?,
-        );
         let toml_str = toml::to_string_pretty(&default_config).map_err(ConfigError::TomlSer)?;
-        file.write_all(toml_str.as_bytes())
-            .map_err(ConfigError::Io)?;
+        crate::save_config_str(&config_file_path, &toml_str)?;
         Ok(default_config)
     };
 

@@ -49,12 +49,8 @@ where
 
     let save_default_conf = || {
         let default_config = T::default();
-        let mut file = std::io::BufWriter::new(
-            std::fs::File::create(&config_file_path).map_err(ConfigError::Io)?,
-        );
         let yaml_str = serde_yaml::to_string(&default_config).map_err(ConfigError::Yaml)?;
-        file.write_all(yaml_str.as_bytes())
-            .map_err(ConfigError::Io)?;
+        crate::save_config_str(&config_file_path, &yaml_str)?;
         Ok(default_config)
     };
 

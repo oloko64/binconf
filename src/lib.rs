@@ -21,6 +21,9 @@ pub use json_conf::{load_json, store_json};
 #[cfg(feature = "yaml-conf")]
 pub use yaml_conf::{load_yaml, store_yaml};
 
+#[cfg(any(feature = "toml-conf", feature = "json-conf", feature = "yaml-conf"))]
+use std::io::Write;
+
 use std::path::PathBuf;
 
 /// Prepares the path to the config file.
@@ -78,6 +81,18 @@ impl AsRef<ConfigLocation> for ConfigLocation {
     fn as_ref(&self) -> &ConfigLocation {
         self
     }
+}
+
+/// Saves the config as a string to the given path.
+#[cfg(any(feature = "toml-conf", feature = "json-conf", feature = "yaml-conf"))]
+#[inline]
+fn save_config_str(config_file_path: &PathBuf, config_as_str: &str) -> Result<(), ConfigError> {
+    let mut file =
+        std::io::BufWriter::new(std::fs::File::create(config_file_path).map_err(ConfigError::Io)?);
+    file.write_all(config_as_str.as_bytes())
+        .map_err(ConfigError::Io)?;
+
+    Ok(())
 }
 
 #[derive(Debug)]
