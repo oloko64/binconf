@@ -3,11 +3,17 @@ mod binary_conf;
 #[cfg(feature = "toml-conf")]
 mod toml_conf;
 
+#[cfg(feature = "json-conf")]
+mod json_conf;
+
 #[cfg(feature = "binary-conf")]
 pub use binary_conf::{load_bin, store_bin};
 
 #[cfg(feature = "toml-conf")]
 pub use toml_conf::{load_toml, store_toml};
+
+#[cfg(feature = "json-conf")]
+pub use json_conf::{load_json, store_json};
 
 use std::path::PathBuf;
 
@@ -78,6 +84,9 @@ pub enum ConfigError {
     #[cfg(feature = "toml-conf")]
     TomlDe(toml::de::Error),
 
+    #[cfg(feature = "json-conf")]
+    Json(serde_json::Error),
+
     #[cfg(feature = "binary-conf")]
     Bincode(bincode::Error),
 
@@ -99,6 +108,9 @@ impl std::fmt::Display for ConfigError {
 
             #[cfg(feature = "toml-conf")]
             ConfigError::TomlDe(err) => write!(f, "{err}"),
+
+            #[cfg(feature = "json-conf")]
+            ConfigError::Json(err) => write!(f, "{err}"),
 
             ConfigError::HashMismatch => write!(f, "Hash mismatch"),
         }

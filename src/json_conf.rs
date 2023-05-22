@@ -1,7 +1,7 @@
 use crate::{ConfigError, ConfigLocation};
 use std::{fs::read_to_string, io::Write};
 
-const TOML_EXTENSION: &str = "toml";
+const JSON_EXTENSION: &str = "json";
 
 /// Reads a config file from the config, cache or local data directory of the current user.
 ///
@@ -22,7 +22,7 @@ const TOML_EXTENSION: &str = "toml";
 ///    test_vec: Vec<u8>,
 /// }
 ///
-/// let config = binconf::load_toml::<TestConfig>("test-binconf-read-toml", None, Config, false).unwrap();
+/// let config = binconf::load_json::<TestConfig>("test-binconf-read-json", None, Config, false).unwrap();
 /// assert_eq!(config, TestConfig::default());
 /// ```
 ///
@@ -31,7 +31,7 @@ const TOML_EXTENSION: &str = "toml";
 /// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while deserializing the config.
 ///
 /// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
-pub fn load_toml<'a, T>(
+pub fn load_json<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
     location: impl AsRef<ConfigLocation>,
@@ -43,7 +43,7 @@ where
     let config_file_path = crate::config_location(
         app_name.as_ref(),
         config_name.into(),
-        TOML_EXTENSION,
+        JSON_EXTENSION,
         location.as_ref(),
     )?;
 
@@ -52,8 +52,8 @@ where
         let mut file = std::io::BufWriter::new(
             std::fs::File::create(&config_file_path).map_err(ConfigError::Io)?,
         );
-        let toml_str = toml::to_string_pretty(&default_config).map_err(ConfigError::TomlSer)?;
-        file.write_all(toml_str.as_bytes())
+        let json_str = serde_json::to_string_pretty(&default_config).map_err(ConfigError::Json)?;
+        file.write_all(json_str.as_bytes())
             .map_err(ConfigError::Io)?;
         Ok(default_config)
     };
@@ -62,8 +62,8 @@ where
         return save_default_conf();
     }
 
-    let toml_str = read_to_string(&config_file_path).map_err(ConfigError::Io)?;
-    let config = match toml::from_str::<T>(&toml_str).map_err(ConfigError::TomlDe) {
+    let json_str = read_to_string(&config_file_path).map_err(ConfigError::Io)?;
+    let config = match serde_json::from_str::<T>(&json_str).map_err(ConfigError::Json) {
         Ok(config) => config,
         Err(err) => {
             if reset_conf_on_err {
@@ -78,7 +78,7 @@ where
 
 /// Stores a config file in the config, cache or local data directory of the current user.
 ///
-/// It will store a config file, serializing it with the `toml` crate.
+/// It will store a config file, serializing it with the `serde_json` crate.
 ///
 /// # Example
 ///
@@ -93,20 +93,20 @@ where
 /// }
 ///
 /// let test_config = TestConfig {
-///  test: String::from("test-toml"),
+///  test: String::from("test-json"),
 ///  test_vec: vec![1, 2, 3, 4, 5],
 /// };
 ///
-/// binconf::store_toml("test-binconf-store-toml", None, Config, &test_config).unwrap();
+/// binconf::store_json("test-binconf-store-json", None, Config, &test_config).unwrap();
 ///
-/// let config = binconf::load_toml::<TestConfig>("test-binconf-store-toml", None, Config, false).unwrap();
+/// let config = binconf::load_json::<TestConfig>("test-binconf-store-json", None, Config, false).unwrap();
 /// assert_eq!(config, test_config);
 /// ```
 ///
 /// # Errors
 ///
 /// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while serializing the config.
-pub fn store_toml<'a, T>(
+pub fn store_json<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
     location: impl AsRef<ConfigLocation>,
@@ -118,16 +118,16 @@ where
     let config_file_path = crate::config_location(
         app_name.as_ref(),
         config_name.into(),
-        TOML_EXTENSION,
+        JSON_EXTENSION,
         location.as_ref(),
     )?;
 
     let mut file =
         std::io::BufWriter::new(std::fs::File::create(config_file_path).map_err(ConfigError::Io)?);
 
-    let toml_str = toml::to_string_pretty(&data).map_err(ConfigError::TomlSer)?;
+    let json_str = serde_json::to_string_pretty(&data).map_err(ConfigError::Json)?;
 
-    file.write_all(toml_str.as_bytes())
+    file.write_all(json_str.as_bytes())
         .map_err(ConfigError::Io)?;
 
     Ok(())
@@ -147,9 +147,9 @@ mod tests {
     }
 
     #[test]
-    fn read_default_config_toml() {
-        let config = load_toml::<TestConfig>(
-            "test-binconf-read_default_config-string-toml",
+    fn read_default_config_json() {
+        let config = load_json::<TestConfig>(
+            "test-binconf-read_default_config-string-json",
             None,
             Config,
             false,
@@ -162,8 +162,8 @@ mod tests {
             test_vec: vec![1, 2, 3, 4, 5],
         };
 
-        let config: TestConfig = load_toml(
-            "test-binconf-read_default_config-struct-toml",
+        let config: TestConfig = load_json(
+            "test-binconf-read_default_config-struct-json",
             None,
             Config,
             false,
@@ -171,15 +171,15 @@ mod tests {
         .unwrap();
         assert_eq!(config, TestConfig::default());
 
-        store_toml(
-            "test-binconf-read_default_config-struct-toml",
+        store_json(
+            "test-binconf-read_default_config-struct-json",
             None,
             Config,
             &test_config,
         )
         .unwrap();
-        let config: TestConfig = load_toml(
-            "test-binconf-read_default_config-struct-toml",
+        let config: TestConfig = load_json(
+            "test-binconf-read_default_config-struct-json",
             None,
             Config,
             false,
@@ -189,10 +189,10 @@ mod tests {
     }
 
     #[test]
-    fn config_with_name_toml() {
-        let config = load_toml::<TestConfig>(
-            "test-binconf-config_with_name-string-toml",
-            Some("test-config.toml"),
+    fn config_with_name_json() {
+        let config = load_json::<TestConfig>(
+            "test-binconf-config_with_name-string-json",
+            Some("test-config.json"),
             Config,
             false,
         )
@@ -204,25 +204,25 @@ mod tests {
             test_vec: vec![1, 2, 3, 4, 5],
         };
 
-        let config: TestConfig = load_toml(
-            "test-binconf-config_with_name-struct-toml",
-            Some("test-config.toml"),
+        let config: TestConfig = load_json(
+            "test-binconf-config_with_name-struct-json",
+            Some("test-config.json"),
             Config,
             false,
         )
         .unwrap();
         assert_eq!(config, TestConfig::default());
 
-        store_toml(
-            "test-binconf-config_with_name-struct-toml",
-            Some("test-config.toml"),
+        store_json(
+            "test-binconf-config_with_name-struct-json",
+            Some("test-config.json"),
             Config,
             &test_config,
         )
         .unwrap();
-        let config: TestConfig = load_toml(
-            "test-binconf-config_with_name-struct-toml",
-            Some("test-config.toml"),
+        let config: TestConfig = load_json(
+            "test-binconf-config_with_name-struct-json",
+            Some("test-config.json"),
             Config,
             false,
         )
@@ -231,21 +231,21 @@ mod tests {
     }
 
     #[test]
-    fn returns_error_on_invalid_config_toml() {
+    fn returns_error_on_invalid_config_json() {
         let data = TestConfig {
             test: String::from("test"),
             test_vec: vec![1, 2, 3, 4, 5],
         };
 
-        store_toml(
-            "test-binconf-returns_error_on_invalid_config-toml",
+        store_json(
+            "test-binconf-returns_error_on_invalid_config-json",
             None,
             Config,
             &data,
         )
         .unwrap();
-        let config = load_toml::<String>(
-            "test-binconf-returns_error_on_invalid_config-toml",
+        let config = load_json::<String>(
+            "test-binconf-returns_error_on_invalid_config-json",
             None,
             Config,
             false,
@@ -255,21 +255,21 @@ mod tests {
     }
 
     #[test]
-    fn save_config_user_config_toml() {
+    fn save_config_user_config_json() {
         let data = TestConfig {
             test: String::from("test"),
             test_vec: vec![1, 2, 3, 4, 5],
         };
 
-        store_toml(
-            "test-binconf-save_config_user_config-toml",
+        store_json(
+            "test-binconf-save_config_user_config-json",
             None,
             Config,
             &data,
         )
         .unwrap();
-        let config: TestConfig = load_toml(
-            "test-binconf-save_config_user_config-toml",
+        let config: TestConfig = load_json(
+            "test-binconf-save_config_user_config-json",
             None,
             Config,
             false,
@@ -279,21 +279,21 @@ mod tests {
     }
 
     #[test]
-    fn save_config_user_cache_toml() {
+    fn save_config_user_cache_json() {
         let data = TestConfig {
             test: String::from("test"),
             test_vec: vec![1, 2, 3, 4, 5],
         };
 
-        store_toml(
-            "test-binconf-save_config_user_cache-toml",
+        store_json(
+            "test-binconf-save_config_user_cache-json",
             None,
             Cache,
             &data,
         )
         .unwrap();
-        let config: TestConfig = load_toml(
-            "test-binconf-save_config_user_cache-toml",
+        let config: TestConfig = load_json(
+            "test-binconf-save_config_user_cache-json",
             None,
             Cache,
             false,
@@ -303,21 +303,21 @@ mod tests {
     }
 
     #[test]
-    fn save_config_user_local_data_toml() {
+    fn save_config_user_local_data_json() {
         let data = TestConfig {
             test: String::from("test"),
             test_vec: vec![1, 2, 3, 4, 5],
         };
 
-        store_toml(
-            "test-binconf-save_config_user_local_data-toml",
+        store_json(
+            "test-binconf-save_config_user_local_data-json",
             None,
             LocalData,
             &data,
         )
         .unwrap();
-        let config: TestConfig = load_toml(
-            "test-binconf-save_config_user_local_data-toml",
+        let config: TestConfig = load_json(
+            "test-binconf-save_config_user_local_data-json",
             None,
             LocalData,
             false,
@@ -327,15 +327,15 @@ mod tests {
     }
 
     #[test]
-    fn save_config_user_cwd_toml() {
+    fn save_config_user_cwd_json() {
         let data = TestConfig {
             test: String::from("test"),
             test_vec: vec![1, 2, 3, 4, 5],
         };
 
-        store_toml("test-binconf-save_config_user_cwd-toml", None, Cwd, &data).unwrap();
+        store_json("test-binconf-save_config_user_cwd-json", None, Cwd, &data).unwrap();
         let config: TestConfig =
-            load_toml("test-binconf-save_config_user_cwd-toml", None, Cwd, false).unwrap();
+            load_json("test-binconf-save_config_user_cwd-json", None, Cwd, false).unwrap();
         assert_eq!(config, data);
     }
 }
