@@ -10,20 +10,25 @@ The config file is saved in your system config directory. On Linux for example i
 
 ---
 
-You can also save the config using `toml`. You need to enable the `toml` feature for this. **(hash validation is not supported for `toml`)**
+You can also save the configuration using `toml`, `json` and `yaml`. You need to enable the respective feature for this. **(hash validation is not supported for `toml`, `json` or `yaml`)**
 
 ### Optional Features
 
-- `full`: Enables all features. This gives you the ability to save and load using `toml` as well as `bincode`.
-- `toml`: Enables saving and loading using `toml` instead of `bincode`.
+- `bincode-conf`: Enables saving and loading configurations in binary. (Enabled by default)
+- `toml-conf`: Enables saving and loading configurations using `toml`.
+- `json-conf`: Enables saving and loading configurations using `json`.
+- `yaml-conf`: Enables saving and loading configurations using `yaml`.
+- `full`: Enables all configuration types. This gives you the ability to save and load using `toml`, `json`, `yaml` as well as binary.
 
 ### Disabling Default Features
 
-If you want to only use `toml` you can disable the default features and enable the `toml` feature.
+If you want to only use one of the features, you can disable the default features and enable the feature you want to use.
+
+Only using `toml` for example:
 
 ```
 [dependencies.binconf]
-features = ["toml"]
+features = ["toml-conf"]
 default-features = false
 ```
 
