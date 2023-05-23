@@ -114,6 +114,7 @@ pub enum ConfigError {
     #[cfg(feature = "binary-conf")]
     Bincode(bincode::Error),
 
+    #[cfg(feature = "binary-conf")]
     HashMismatch,
 }
 
@@ -139,6 +140,7 @@ impl std::fmt::Display for ConfigError {
             #[cfg(feature = "yaml-conf")]
             ConfigError::Yaml(err) => write!(f, "{err}"),
 
+            #[cfg(feature = "binary-conf")]
             ConfigError::HashMismatch => write!(f, "Hash mismatch"),
         }
     }

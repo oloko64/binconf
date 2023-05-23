@@ -1,4 +1,5 @@
 use md5::{Digest, Md5};
+use std::io::{Read, Write};
 
 use crate::{ConfigError, ConfigLocation};
 
@@ -50,21 +51,56 @@ where
     )?;
 
     let save_default_conf = || {
-        let default_config = Config::new(T::default()).map_err(ConfigError::Bincode)?;
-        let file = std::io::BufWriter::new(
+        let default_config = T::default();
+        let mut file = std::io::BufWriter::new(
             std::fs::File::create(&config_file_path).map_err(ConfigError::Io)?,
         );
-        bincode::serialize_into(file, &default_config).map_err(ConfigError::Bincode)?;
+
+        let mut hasher = Md5::new();
+        // create a buffer with a space of 128bits(16 bytes) for storing the hash in the front of the file
+        let mut full_data = [
+            vec![0; 16],
+            bincode::serialize(&default_config).map_err(ConfigError::Bincode)?,
+        ]
+        .concat();
+
+        // hash the data without the zeroed hash
+        hasher.update(&full_data[16..]);
+        let hash: &[u8] = &hasher.finalize()[..];
+
+        // mutate the array to add the hash to the front of the buffer
+        full_data[..16].clone_from_slice(hash);
+
+        file.write_all(&full_data).map_err(ConfigError::Io)?;
+
         Ok(default_config)
     };
 
     if !config_file_path.try_exists().map_err(ConfigError::Io)? {
-        return save_default_conf().map(|config| config.data);
+        return save_default_conf();
     }
 
     let file = std::fs::File::open(&config_file_path).map_err(ConfigError::Io)?;
-    let reader = std::io::BufReader::new(file);
-    let config: Config<T> = match bincode::deserialize_from(reader) {
+    let mut reader = std::io::BufReader::new(file);
+
+    let mut data = Vec::new();
+    reader.read_to_end(&mut data).map_err(ConfigError::Io)?;
+    let hash_from_file = &data[..16];
+    let data = &data[16..];
+
+    let mut hasher = Md5::new();
+    hasher.update(data);
+
+    let hash_from_data: &[u8] = &hasher.finalize()[..];
+
+    if hash_from_file != hash_from_data {
+        if reset_conf_on_err {
+            return save_default_conf();
+        }
+        return Err(ConfigError::HashMismatch);
+    }
+
+    let config: T = match bincode::deserialize_from(data) {
         Ok(config) => config,
         Err(err) => {
             if reset_conf_on_err {
@@ -75,19 +111,7 @@ where
         }
     };
 
-    let mut hasher = Md5::new();
-    hasher.update(bincode::serialize(&config.data).map_err(ConfigError::Bincode)?);
-    let hash = format!("{:x}", hasher.finalize());
-
-    if config.hash != hash {
-        if reset_conf_on_err {
-            let default_config = save_default_conf()?;
-            return Ok(default_config.data);
-        }
-        return Err(ConfigError::HashMismatch);
-    }
-
-    Ok(config.data)
+    Ok(config)
 }
 
 /// Stores a config file in the config, cache or local data directory of the current user.
@@ -137,42 +161,45 @@ where
         location.as_ref(),
     )?;
 
-    let config_data = Config::new(data).map_err(ConfigError::Bincode)?;
-
-    let file =
+    let mut file =
         std::io::BufWriter::new(std::fs::File::create(config_file_path).map_err(ConfigError::Io)?);
-    bincode::serialize_into(file, &config_data).map_err(ConfigError::Bincode)?;
+
+    let mut hasher = Md5::new();
+    let mut full_data = [
+        vec![0; 16],
+        bincode::serialize(&data).map_err(ConfigError::Bincode)?,
+    ]
+    .concat();
+    hasher.update(&full_data[16..]);
+
+    let hash: &[u8] = &hasher.finalize()[..];
+
+    full_data[..16].clone_from_slice(hash);
+
+    file.write_all(&full_data[..]).map_err(ConfigError::Io)?;
 
     Ok(())
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
-struct Config<T> {
-    hash: String,
-    data: T,
-}
-
-impl<T: serde::Serialize> Config<T> {
-    fn new(data: T) -> Result<Config<T>, bincode::Error> {
-        let mut hasher = Md5::new();
-        hasher.update(bincode::serialize(&data)?);
-        let hash = format!("{:x}", hasher.finalize());
-
-        Ok(Config { hash, data })
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use serde::Deserialize;
+    use serde::{Deserialize, Serialize};
     use ConfigLocation::{Cache, Config, Cwd, LocalData};
 
-    #[derive(Default, serde::Serialize, Deserialize, PartialEq, Debug, Clone)]
+    #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Clone)]
     struct TestConfig {
         test: String,
         test_vec: Vec<u8>,
+    }
+
+    #[derive(Default, Serialize, Deserialize, Clone, Debug)]
+    struct TestConfig2 {
+        strings: String,
+        vecs: Vec<u8>,
+        num_1: i32,
+        num_2: i32,
     }
 
     #[test]
@@ -263,7 +290,7 @@ mod tests {
     fn returns_error_on_invalid_config_bin() {
         let data = TestConfig {
             test: String::from("test"),
-            test_vec: vec![1, 2, 3, 4, 5],
+            test_vec: vec![1, 2],
         };
 
         store_bin(
@@ -273,7 +300,7 @@ mod tests {
             &data,
         )
         .unwrap();
-        let config = load_bin::<String>(
+        let config = load_bin::<TestConfig2>(
             "test-binconf-returns_error_on_invalid_config-bin",
             None,
             Config,
