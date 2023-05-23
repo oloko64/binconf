@@ -17,7 +17,7 @@ You can also save the configuration using `toml`, `json`, `yaml` and `ron`. You 
 - `json-conf`: Enables saving and loading configurations using `json`.
 - `yaml-conf`: Enables saving and loading configurations using `yaml`.
 - `ron-conf`: Enables saving and loading configurations using `ron`.
-- `full`: Enables all configuration types. This gives you the ability to save and load using `toml`, `json`, `yaml` as well as binary.
+- `full`: Enables all configuration types. This gives you the ability to save and load using `toml`, `json`, `yaml`, `ron` as well as binary.
 
 ### Disabling Default Features
 
