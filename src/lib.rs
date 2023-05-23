@@ -1,45 +1,58 @@
-use md5::{Digest, Md5};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::io::BufWriter;
+#[cfg(feature = "binary-conf")]
+mod binary_conf;
+#[cfg(feature = "toml-conf")]
+mod toml_conf;
 
-/// Reads a config file from the config, cache or local data directory of the current user.
+#[cfg(feature = "json-conf")]
+mod json_conf;
+
+#[cfg(feature = "yaml-conf")]
+mod yaml_conf;
+
+#[cfg(feature = "ron-conf")]
+mod ron_conf;
+
+#[cfg(feature = "binary-conf")]
+pub use binary_conf::{load_bin, store_bin};
+
+#[cfg(feature = "toml-conf")]
+pub use toml_conf::{load_toml, store_toml};
+
+#[cfg(feature = "json-conf")]
+pub use json_conf::{load_json, store_json};
+
+#[cfg(feature = "yaml-conf")]
+pub use yaml_conf::{load_yaml, store_yaml};
+
+#[cfg(feature = "ron-conf")]
+pub use ron_conf::{load_ron, store_ron};
+
+#[cfg(any(
+    feature = "toml-conf",
+    feature = "json-conf",
+    feature = "yaml-conf",
+    feature = "ron-conf"
+))]
+use std::io::Write;
+
+use std::path::PathBuf;
+
+/// Prepares the path to the config file.
 ///
-/// It will load a config file, deserialize it and return it.
+/// It will decide where to store the config file based on the `location` parameter.
 ///
-/// If the flag `reset_conf_on_err` is set to `true`, the config file will be reset to the default config if
-/// the deserialization fails, if set to `false` an error will be returned.
+/// If the path to the config file does not exist, it will create the path.
 ///
-/// # Example
+/// Returns the path to the config file with the given extension.
 ///
-/// ```
-/// use binconf::ConfigLocation::{Cache, Config, LocalData};
-/// use serde::{Deserialize, Serialize};
-///
-/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
-/// struct TestConfig {
-///    test: String,
-///    test_vec: Vec<u8>,
-/// }
-///
-/// let config = binconf::load::<TestConfig>("test-binconf-read", None, Config, false).unwrap();
-/// assert_eq!(config, TestConfig::default());
-/// ```
-///
-/// # Errors
-///
-/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while deserializing the config.
-///
-/// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
-pub fn load<'a, T>(
-    app_name: impl AsRef<str>,
-    config_name: impl Into<Option<&'a str>>,
-    location: impl AsRef<ConfigLocation>,
-    reset_conf_on_err: bool,
-) -> Result<T, ConfigError>
-where
-    T: Default + Serialize + DeserializeOwned,
-{
-    let conf_dir = match location.as_ref() {
+/// **The function does not guarantee that the file exists. Just that the path to the file exists.**
+fn config_location(
+    app_name: &str,
+    config_name: Option<&str>,
+    extension: &str,
+    location: &ConfigLocation,
+) -> Result<PathBuf, ConfigError> {
+    let conf_dir = match location {
         ConfigLocation::Config => dirs::config_dir().ok_or(ConfigError::Io(
             std::io::Error::new(std::io::ErrorKind::NotFound, "Config directory not found"),
         ))?,
@@ -53,124 +66,18 @@ where
                 "Local data directory not found",
             )))?
         }
+        ConfigLocation::Cwd => std::env::current_dir().map_err(ConfigError::Io)?,
     };
 
-    let conf_dir = conf_dir.join(app_name.as_ref());
+    let conf_dir = conf_dir.join(app_name);
 
     if !conf_dir.try_exists().map_err(ConfigError::Io)? {
         std::fs::create_dir_all(&conf_dir).map_err(ConfigError::Io)?;
     }
 
-    let conf_file = conf_dir.join(config_name.into().unwrap_or(app_name.as_ref()));
+    let conf_file = conf_dir.join(config_name.unwrap_or(&format!("{app_name}.{extension}")));
 
-    let save_default_conf = || {
-        let default_config = Config::new(T::default()).map_err(ConfigError::Bincode)?;
-        let file = BufWriter::new(std::fs::File::create(&conf_file).map_err(ConfigError::Io)?);
-        bincode::serialize_into(file, &default_config).map_err(ConfigError::Bincode)?;
-        Ok(default_config)
-    };
-
-    if !conf_file.try_exists().map_err(ConfigError::Io)? {
-        return save_default_conf().map(|config| config.data);
-    }
-
-    let file = std::fs::File::open(&conf_file).map_err(ConfigError::Io)?;
-    let reader = std::io::BufReader::new(file);
-    let config: Config<T> = match bincode::deserialize_from(reader) {
-        Ok(config) => config,
-        Err(err) => {
-            if reset_conf_on_err {
-                save_default_conf()?
-            } else {
-                return Err(ConfigError::Bincode(err));
-            }
-        }
-    };
-
-    let mut hasher = Md5::new();
-    hasher.update(bincode::serialize(&config.data).map_err(ConfigError::Bincode)?);
-    let hash = format!("{:x}", hasher.finalize());
-
-    if config.hash != hash {
-        if reset_conf_on_err {
-            let default_config = save_default_conf()?;
-            return Ok(default_config.data);
-        }
-        return Err(ConfigError::HashMismatch);
-    }
-
-    Ok(config.data)
-}
-
-/// Stores a config file in the config, cache or local data directory of the current user.
-///
-/// It will store a config file, serializing it with the `bincode` crate.
-///
-/// # Example
-///
-/// ```
-/// use binconf::ConfigLocation::{Cache, Config, LocalData};
-/// use serde::{Deserialize, Serialize};
-///
-/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
-/// struct TestConfig {
-///   test: String,
-///   test_vec: Vec<u8>,
-/// }
-///
-/// let test_config = TestConfig {
-///  test: String::from("test"),
-///  test_vec: vec![1, 2, 3, 4, 5],
-/// };
-///
-/// binconf::store("test-binconf-store", None, Config, &test_config).unwrap();
-///
-/// let config = binconf::load::<TestConfig>("test-binconf-store", None, Config, false).unwrap();
-/// assert_eq!(config, test_config);
-/// ```
-///
-/// # Errors
-///
-/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while serializing the config.
-pub fn store<'a, T>(
-    app_name: impl AsRef<str>,
-    config_name: impl Into<Option<&'a str>>,
-    location: impl AsRef<ConfigLocation>,
-    data: T,
-) -> Result<(), ConfigError>
-where
-    T: Serialize,
-{
-    let conf_dir = match location.as_ref() {
-        ConfigLocation::Config => dirs::config_dir().ok_or(ConfigError::Io(
-            std::io::Error::new(std::io::ErrorKind::NotFound, "Config directory not found"),
-        ))?,
-        ConfigLocation::Cache => dirs::cache_dir().ok_or(ConfigError::Io(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "Cache directory not found",
-        )))?,
-        ConfigLocation::LocalData => {
-            dirs::data_local_dir().ok_or(ConfigError::Io(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "Local data directory not found",
-            )))?
-        }
-    };
-
-    let conf_dir = conf_dir.join(app_name.as_ref());
-
-    if !conf_dir.try_exists().map_err(ConfigError::Io)? {
-        std::fs::create_dir_all(&conf_dir).map_err(ConfigError::Io)?;
-    }
-
-    let conf_file = conf_dir.join(config_name.into().unwrap_or(app_name.as_ref()));
-
-    let config_data = Config::new(data).map_err(ConfigError::Bincode)?;
-
-    let file = BufWriter::new(std::fs::File::create(conf_file).map_err(ConfigError::Io)?);
-    bincode::serialize_into(file, &config_data).map_err(ConfigError::Bincode)?;
-
-    Ok(())
+    Ok(conf_file)
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -178,6 +85,7 @@ pub enum ConfigLocation {
     Config,
     Cache,
     LocalData,
+    Cwd,
 }
 
 impl AsRef<ConfigLocation> for ConfigLocation {
@@ -186,26 +94,49 @@ impl AsRef<ConfigLocation> for ConfigLocation {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct Config<T> {
-    hash: String,
-    data: T,
-}
+/// Saves the config as a string to the given path.
+#[cfg(any(
+    feature = "toml-conf",
+    feature = "json-conf",
+    feature = "yaml-conf",
+    feature = "ron-conf"
+))]
+#[inline]
+fn save_config_str(config_file_path: &PathBuf, config_as_str: &str) -> Result<(), ConfigError> {
+    let mut file =
+        std::io::BufWriter::new(std::fs::File::create(config_file_path).map_err(ConfigError::Io)?);
+    file.write_all(config_as_str.as_bytes())
+        .map_err(ConfigError::Io)?;
 
-impl<T: Serialize> Config<T> {
-    fn new(data: T) -> Result<Config<T>, bincode::Error> {
-        let mut hasher = Md5::new();
-        hasher.update(bincode::serialize(&data)?);
-        let hash = format!("{:x}", hasher.finalize());
-
-        Ok(Config { hash, data })
-    }
+    Ok(())
 }
 
 #[derive(Debug)]
 pub enum ConfigError {
     Io(std::io::Error),
+
+    #[cfg(feature = "toml-conf")]
+    TomlSer(toml::ser::Error),
+
+    #[cfg(feature = "toml-conf")]
+    TomlDe(toml::de::Error),
+
+    #[cfg(feature = "json-conf")]
+    Json(serde_json::Error),
+
+    #[cfg(feature = "yaml-conf")]
+    Yaml(serde_yaml::Error),
+
+    #[cfg(feature = "ron-conf")]
+    RonSer(ron::Error),
+
+    #[cfg(feature = "ron-conf")]
+    RonDe(ron::error::SpannedError),
+
+    #[cfg(feature = "binary-conf")]
     Bincode(bincode::Error),
+
+    #[cfg(feature = "binary-conf")]
     HashMismatch,
 }
 
@@ -215,180 +146,30 @@ impl std::fmt::Display for ConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             ConfigError::Io(err) => write!(f, "{err}"),
+
+            #[cfg(feature = "binary-conf")]
             ConfigError::Bincode(err) => write!(f, "{err}"),
+
+            #[cfg(feature = "toml-conf")]
+            ConfigError::TomlSer(err) => write!(f, "{err}"),
+
+            #[cfg(feature = "toml-conf")]
+            ConfigError::TomlDe(err) => write!(f, "{err}"),
+
+            #[cfg(feature = "json-conf")]
+            ConfigError::Json(err) => write!(f, "{err}"),
+
+            #[cfg(feature = "yaml-conf")]
+            ConfigError::Yaml(err) => write!(f, "{err}"),
+
+            #[cfg(feature = "ron-conf")]
+            ConfigError::RonSer(err) => write!(f, "{err}"),
+
+            #[cfg(feature = "ron-conf")]
+            ConfigError::RonDe(err) => write!(f, "{err}"),
+
+            #[cfg(feature = "binary-conf")]
             ConfigError::HashMismatch => write!(f, "Hash mismatch"),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use serde::Deserialize;
-    use ConfigLocation::{Cache, Config, LocalData};
-
-    #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Clone)]
-    struct TestConfig {
-        test: String,
-        test_vec: Vec<u8>,
-    }
-
-    #[test]
-    fn read_default_config() {
-        let config = load::<String>(
-            "test-binconf-read_default_config-string",
-            None,
-            Config,
-            false,
-        )
-        .unwrap();
-        assert_eq!(config, String::from(""));
-
-        let test_config = TestConfig {
-            test: String::from("test"),
-            test_vec: vec![1, 2, 3, 4, 5],
-        };
-
-        let config: TestConfig = load(
-            "test-binconf-read_default_config-struct",
-            None,
-            Config,
-            false,
-        )
-        .unwrap();
-        assert_eq!(config, TestConfig::default());
-
-        store(
-            "test-binconf-read_default_config-struct",
-            None,
-            Config,
-            &test_config,
-        )
-        .unwrap();
-        let config: TestConfig = load(
-            "test-binconf-read_default_config-struct",
-            None,
-            Config,
-            false,
-        )
-        .unwrap();
-        assert_eq!(config, test_config);
-    }
-
-    #[test]
-    fn config_with_name() {
-        let config = load::<String>(
-            "test-binconf-config_with_name-string",
-            Some("test-config.bin"),
-            Config,
-            false,
-        )
-        .unwrap();
-        assert_eq!(config, String::from(""));
-
-        let test_config = TestConfig {
-            test: String::from("test"),
-            test_vec: vec![1, 2, 3, 4, 5],
-        };
-
-        let config: TestConfig = load(
-            "test-binconf-config_with_name-struct",
-            Some("test-config.bin"),
-            Config,
-            false,
-        )
-        .unwrap();
-        assert_eq!(config, TestConfig::default());
-
-        store(
-            "test-binconf-config_with_name-struct",
-            Some("test-config.bin"),
-            Config,
-            &test_config,
-        )
-        .unwrap();
-        let config: TestConfig = load(
-            "test-binconf-config_with_name-struct",
-            Some("test-config.bin"),
-            Config,
-            false,
-        )
-        .unwrap();
-        assert_eq!(config, test_config);
-    }
-
-    #[test]
-    fn returns_error_on_invalid_config() {
-        let data = TestConfig {
-            test: String::from("test"),
-            test_vec: vec![1, 2, 3, 4, 5],
-        };
-
-        store(
-            "test-binconf-returns_error_on_invalid_config",
-            None,
-            Config,
-            &data,
-        )
-        .unwrap();
-        let config = load::<String>(
-            "test-binconf-returns_error_on_invalid_config",
-            None,
-            Config,
-            false,
-        );
-
-        assert!(config.is_err());
-    }
-
-    #[test]
-    fn save_config_user_config() {
-        let data = TestConfig {
-            test: String::from("test"),
-            test_vec: vec![1, 2, 3, 4, 5],
-        };
-
-        store("test-binconf-save_config_user_config", None, Config, &data).unwrap();
-        let config: TestConfig =
-            load("test-binconf-save_config_user_config", None, Config, false).unwrap();
-        assert_eq!(config, data);
-    }
-
-    #[test]
-    fn save_config_user_cache() {
-        let data = TestConfig {
-            test: String::from("test"),
-            test_vec: vec![1, 2, 3, 4, 5],
-        };
-
-        store("test-binconf-save_config_user_cache", None, Cache, &data).unwrap();
-        let config: TestConfig =
-            load("test-binconf-save_config_user_cache", None, Cache, false).unwrap();
-        assert_eq!(config, data);
-    }
-
-    #[test]
-    fn save_config_user_local_data() {
-        let data = TestConfig {
-            test: String::from("test"),
-            test_vec: vec![1, 2, 3, 4, 5],
-        };
-
-        store(
-            "test-binconf-save_config_user_local_data",
-            None,
-            LocalData,
-            &data,
-        )
-        .unwrap();
-        let config: TestConfig = load(
-            "test-binconf-save_config_user_local_data",
-            None,
-            LocalData,
-            false,
-        )
-        .unwrap();
-        assert_eq!(config, data);
     }
 }
