@@ -188,7 +188,7 @@ mod tests {
     fn config_with_name_yaml() {
         let config = load_yaml::<TestConfig>(
             "test-binconf-config_with_name-string-yaml",
-            Some("test-config.yaml"),
+            Some("test-config.yml"),
             Config,
             false,
         )
@@ -202,7 +202,7 @@ mod tests {
 
         let config: TestConfig = load_yaml(
             "test-binconf-config_with_name-struct-yaml",
-            Some("test-config.yaml"),
+            Some("test-config.yml"),
             Config,
             false,
         )
