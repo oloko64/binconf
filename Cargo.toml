@@ -15,6 +15,9 @@ readme = "README.md"
 [[example]]
 name = "examples"
 
+[package.metadata.docs.rs]
+all-features = true
+
 [features]
 default = ["binary-conf"]
 full = ["binary-conf", "toml-conf", "json-conf", "yaml-conf", "ron-conf"]
