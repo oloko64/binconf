@@ -81,15 +81,16 @@ where
     }
 
     let (binary_hash_from_file, binary_hash_from_data) = get_hash_from_file_and_data(&data);
-    let binary_data_without_hash = &data[16..];
-
+    
     if binary_hash_from_file != binary_hash_from_data {
         if reset_conf_on_err {
             return save_default_conf();
         }
         return Err(ConfigError::HashMismatch);
     }
-
+    
+    // The first 16 bytes are the `md5` hash, the rest is the serialized data
+    let binary_data_without_hash = &data[16..];
     let config: T = match bincode::deserialize_from(binary_data_without_hash) {
         Ok(config) => config,
         Err(err) => {
