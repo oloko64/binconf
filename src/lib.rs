@@ -9,6 +9,9 @@ mod json_conf;
 #[cfg(feature = "yaml-conf")]
 mod yaml_conf;
 
+#[cfg(feature = "ron-conf")]
+mod ron_conf;
+
 #[cfg(feature = "binary-conf")]
 pub use binary_conf::{load_bin, store_bin};
 
@@ -21,7 +24,15 @@ pub use json_conf::{load_json, store_json};
 #[cfg(feature = "yaml-conf")]
 pub use yaml_conf::{load_yaml, store_yaml};
 
-#[cfg(any(feature = "toml-conf", feature = "json-conf", feature = "yaml-conf"))]
+#[cfg(feature = "ron-conf")]
+pub use ron_conf::{load_ron, store_ron};
+
+#[cfg(any(
+    feature = "toml-conf",
+    feature = "json-conf",
+    feature = "yaml-conf",
+    feature = "ron-conf"
+))]
 use std::io::Write;
 
 use std::path::PathBuf;
@@ -84,7 +95,12 @@ impl AsRef<ConfigLocation> for ConfigLocation {
 }
 
 /// Saves the config as a string to the given path.
-#[cfg(any(feature = "toml-conf", feature = "json-conf", feature = "yaml-conf"))]
+#[cfg(any(
+    feature = "toml-conf",
+    feature = "json-conf",
+    feature = "yaml-conf",
+    feature = "ron-conf"
+))]
 #[inline]
 fn save_config_str(config_file_path: &PathBuf, config_as_str: &str) -> Result<(), ConfigError> {
     let mut file =
@@ -110,6 +126,12 @@ pub enum ConfigError {
 
     #[cfg(feature = "yaml-conf")]
     Yaml(serde_yaml::Error),
+
+    #[cfg(feature = "ron-conf")]
+    RonSer(ron::Error),
+
+    #[cfg(feature = "ron-conf")]
+    RonDe(ron::error::SpannedError),
 
     #[cfg(feature = "binary-conf")]
     Bincode(bincode::Error),
@@ -139,6 +161,12 @@ impl std::fmt::Display for ConfigError {
 
             #[cfg(feature = "yaml-conf")]
             ConfigError::Yaml(err) => write!(f, "{err}"),
+
+            #[cfg(feature = "ron-conf")]
+            ConfigError::RonSer(err) => write!(f, "{err}"),
+
+            #[cfg(feature = "ron-conf")]
+            ConfigError::RonDe(err) => write!(f, "{err}"),
 
             #[cfg(feature = "binary-conf")]
             ConfigError::HashMismatch => write!(f, "Hash mismatch"),

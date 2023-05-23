@@ -6,11 +6,9 @@ Save and load from a binary configuration file with ease.
 
 The data is hashed ([md-5](https://crates.io/crates/md-5)) during serialization and validated when deserializing, so you can be sure that the data is not corrupted.
 
-The config file is saved in your system config directory. On Linux for example it is saved in your home directory under `~/.config/<app_name>/<config_name>`.
-
 ---
 
-You can also save the configuration using `toml`, `json` and `yaml`. You need to enable the respective feature for this. **(hash validation is not supported for `toml`, `json` or `yaml`)**
+You can also save the configuration using `toml`, `json`, `yaml` and `ron`. You need to enable the respective feature for this. **(hash validation is not supported for `toml`, `json`, `yaml` or `ron`)**
 
 ### Optional Features
 
@@ -18,13 +16,14 @@ You can also save the configuration using `toml`, `json` and `yaml`. You need to
 - `toml-conf`: Enables saving and loading configurations using `toml`.
 - `json-conf`: Enables saving and loading configurations using `json`.
 - `yaml-conf`: Enables saving and loading configurations using `yaml`.
+- `ron-conf`: Enables saving and loading configurations using `ron`.
 - `full`: Enables all configuration types. This gives you the ability to save and load using `toml`, `json`, `yaml` as well as binary.
 
 ### Disabling Default Features
 
 If you want to only use one of the features, you can disable the default features and enable the feature you want to use.
 
-Only using `toml` for example:
+Only using `toml`, for example:
 
 ```
 [dependencies.binconf]
@@ -48,7 +47,7 @@ struct TestConfig {
 
 fn main() {
     let config = TestConfig {
-        strings: String::from("testing"),
+        strings: String::from("binconf"),
         vecs: vec![1, 2, 3, 4, 5],
     };
 
