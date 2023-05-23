@@ -181,7 +181,7 @@ fn get_hash_from_file_and_data(data: &[u8]) -> (&[u8], Vec<u8>) {
 
     // The `md5` hash should be 128 bits (16 bytes) long. If it's not, something went wrong.
     // This prevents a vec allocation with incorrect size.
-    assert!(binary_hash_from_file.len() == 16);
+    assert!(binary_hash_from_data.len() == 16);
 
     (binary_hash_from_file, binary_hash_from_data.to_vec())
 }
