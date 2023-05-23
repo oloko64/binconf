@@ -4,6 +4,7 @@ use std::io::{Read, Write};
 use crate::{ConfigError, ConfigLocation};
 
 const BIN_EXTENSION: &str = "bin";
+const MD5_BYTE_LENGTH: usize = 16;
 
 /// Reads a config file from the config, cache or local data directory of the current user.
 ///
@@ -73,7 +74,7 @@ where
     reader.read_to_end(&mut data).map_err(ConfigError::Io)?;
 
     // If the file is empty, or smaller than 16 bytes, we can't have a `md5` hash
-    if data.len() < 16 {
+    if data.len() < MD5_BYTE_LENGTH {
         if reset_conf_on_err {
             return save_default_conf();
         }
@@ -90,7 +91,7 @@ where
     }
 
     // The first 16 bytes are the `md5` hash, the rest is the serialized data
-    let binary_data_without_hash = &data[16..];
+    let binary_data_without_hash = &data[MD5_BYTE_LENGTH..];
     let config: T = match bincode::deserialize_from(binary_data_without_hash) {
         Ok(config) => config,
         Err(err) => {
@@ -169,10 +170,10 @@ where
 /// If the data is corrupted, the `md5` hash of the file and the `md5` hash of the data will not match.
 fn get_hash_from_file_and_data(data: &[u8]) -> (&[u8], Vec<u8>) {
     // The first 128 bits (16 bytes) of the data will be the md5 hash of the data.
-    let binary_hash_from_file = &data[..16];
+    let binary_hash_from_file = &data[..MD5_BYTE_LENGTH];
 
     // The rest of the data will be the serialized data.
-    let binary_data_without_hash = &data[16..];
+    let binary_data_without_hash = &data[MD5_BYTE_LENGTH..];
 
     let mut hasher = Md5::new();
     hasher.update(binary_data_without_hash);
@@ -181,7 +182,7 @@ fn get_hash_from_file_and_data(data: &[u8]) -> (&[u8], Vec<u8>) {
 
     // The `md5` hash should be 128 bits (16 bytes) long. If it's not, something went wrong.
     // This prevents a vec allocation with incorrect size.
-    assert!(binary_hash_from_data.len() == 16);
+    assert!(binary_hash_from_data.len() == MD5_BYTE_LENGTH);
 
     (binary_hash_from_file, binary_hash_from_data.to_vec())
 }
@@ -200,18 +201,18 @@ where
     let mut hasher = Md5::new();
     // Create a buffer with 16 bytes zeroed out, and append the serialized data to it.
     let mut full_data = [
-        vec![0; 16],
+        vec![0; MD5_BYTE_LENGTH],
         bincode::serialize(&data).map_err(ConfigError::Bincode)?,
     ]
     .concat();
     // Calculate the `md5` hash of the serialized data.
-    hasher.update(&full_data[16..]);
+    hasher.update(&full_data[MD5_BYTE_LENGTH..]);
 
     let hash: &[u8] = &hasher.finalize()[..];
 
     // Prepend the `md5` hash to the binary data. If the hash length is not 16 bytes, this will panic. This should never happen as the `md5` hash is always 16 bytes.
     // This function will panic if the two slices have different lengths.
-    full_data[..16].clone_from_slice(hash);
+    full_data[..MD5_BYTE_LENGTH].clone_from_slice(hash);
 
     Ok(full_data)
 }
