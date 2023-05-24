@@ -1,6 +1,6 @@
 [package]
 name = "binconf"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 authors = ["OLoKo64 <reinaldorozatoj.11cg1@aleeas.com>"]
 description = "Save and load from a binary configuration file with ease."
@@ -21,11 +21,11 @@ all-features = true
 [features]
 default = ["binary-conf"]
 full = ["binary-conf", "toml-conf", "json-conf", "yaml-conf", "ron-conf"]
-binary-conf = ["bincode", "md-5"]
-toml-conf = ["toml"]
-json-conf = ["serde_json"]
-yaml-conf = ["serde_yaml"]
-ron-conf = ["ron"]
+binary-conf = ["dep:bincode", "dep:md-5"]
+toml-conf = ["dep:toml"]
+json-conf = ["dep:serde_json"]
+yaml-conf = ["dep:serde_yaml"]
+ron-conf = ["dep:ron"]
 
 [dependencies]
 bincode = { version = "1.3.3", optional = true }
