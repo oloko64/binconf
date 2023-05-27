@@ -3,7 +3,7 @@ use std::{fs::read_to_string, io::Write};
 
 const RON_EXTENSION: &str = "ron";
 
-/// Reads a config file from the config, cache or local data directory of the current user.
+/// Loads a config file from the config, cache, cwd, or local data directory of the current user. In `ron` format.
 ///
 /// It will load a config file, deserialize it and return it.
 ///
@@ -76,7 +76,7 @@ where
     Ok(config)
 }
 
-/// Stores a config file in the config, cache or local data directory of the current user.
+/// Stores a config file in the config, cache, cwd, or local data directory of the current user. In `ron` format.
 ///
 /// It will store a config file, serializing it with the `serde_ron` crate.
 ///
