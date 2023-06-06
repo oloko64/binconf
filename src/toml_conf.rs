@@ -1,7 +1,5 @@
-use crate::{ConfigError, ConfigLocation};
+use crate::{ConfigError, ConfigLocation, ConfigType};
 use std::{fs::read_to_string, io::Write};
-
-const TOML_EXTENSION: &str = "toml";
 
 /// Loads a config file from the config, cache, cwd, or local data directory of the current user. In `toml` format.
 ///
@@ -9,6 +7,12 @@ const TOML_EXTENSION: &str = "toml";
 ///
 /// If the flag `reset_conf_on_err` is set to `true`, the config file will be reset to the default config if
 /// the deserialization fails, if set to `false` an error will be returned.
+///
+/// # Errors
+///
+/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while deserializing the config.
+///
+/// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
 ///
 /// # Example
 ///
@@ -25,12 +29,6 @@ const TOML_EXTENSION: &str = "toml";
 /// let config = binconf::load_toml::<TestConfig>("test-binconf-read-toml", None, Config, false).unwrap();
 /// assert_eq!(config, TestConfig::default());
 /// ```
-///
-/// # Errors
-///
-/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while deserializing the config.
-///
-/// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
 pub fn load_toml<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
@@ -43,7 +41,7 @@ where
     let config_file_path = crate::config_location(
         app_name.as_ref(),
         config_name.into(),
-        TOML_EXTENSION,
+        ConfigType::Toml.as_str(),
         location.as_ref(),
     )?;
 
@@ -76,6 +74,10 @@ where
 ///
 /// It will store a config file, serializing it with the `toml` crate.
 ///
+/// # Errors
+///
+/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while serializing the config.
+///
 /// # Example
 ///
 /// ```
@@ -98,10 +100,6 @@ where
 /// let config = binconf::load_toml::<TestConfig>("test-binconf-store-toml", None, Config, false).unwrap();
 /// assert_eq!(config, test_config);
 /// ```
-///
-/// # Errors
-///
-/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while serializing the config.
 pub fn store_toml<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
@@ -114,7 +112,7 @@ where
     let config_file_path = crate::config_location(
         app_name.as_ref(),
         config_name.into(),
-        TOML_EXTENSION,
+        ConfigType::Toml.as_str(),
         location.as_ref(),
     )?;
 
