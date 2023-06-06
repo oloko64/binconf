@@ -142,7 +142,7 @@ impl ConfigType {
             ConfigType::Json => "json",
 
             #[cfg(feature = "yaml-conf")]
-            ConfigType::Yaml => "yaml",
+            ConfigType::Yaml => "yml",
 
             #[cfg(feature = "ron-conf")]
             ConfigType::Ron => "ron",
@@ -276,7 +276,7 @@ mod tests {
 
         assert_eq!(toml_config, config_location.join("test/test.toml"));
         assert_eq!(json_config, config_location.join("test/test.json"));
-        assert_eq!(yaml_config, config_location.join("test/test.yaml"));
+        assert_eq!(yaml_config, config_location.join("test/test.yml"));
         assert_eq!(ron_config, config_location.join("test/test.ron"));
         assert_eq!(bin_config, config_location.join("test/test.bin"));
     }
@@ -298,7 +298,7 @@ mod tests {
 
         assert_eq!(toml_config, cache_location.join("test/test.toml"));
         assert_eq!(json_config, cache_location.join("test/test.json"));
-        assert_eq!(yaml_config, cache_location.join("test/test.yaml"));
+        assert_eq!(yaml_config, cache_location.join("test/test.yml"));
         assert_eq!(ron_config, cache_location.join("test/test.ron"));
         assert_eq!(bin_config, cache_location.join("test/test.bin"));
     }
@@ -321,11 +321,11 @@ mod tests {
             get_configuration_path("test", None, ConfigType::Bin, ConfigLocation::LocalData)
                 .unwrap();
 
-        let local_data_location = dirs::config_dir().unwrap();
+        let local_data_location = dirs::data_local_dir().unwrap();
 
         assert_eq!(toml_config, local_data_location.join("test/test.toml"));
         assert_eq!(json_config, local_data_location.join("test/test.json"));
-        assert_eq!(yaml_config, local_data_location.join("test/test.yaml"));
+        assert_eq!(yaml_config, local_data_location.join("test/test.yml"));
         assert_eq!(ron_config, local_data_location.join("test/test.ron"));
         assert_eq!(bin_config, local_data_location.join("test/test.bin"));
     }
@@ -347,7 +347,7 @@ mod tests {
 
         assert_eq!(toml_config, cwd_location.join("test/test.toml"));
         assert_eq!(json_config, cwd_location.join("test/test.json"));
-        assert_eq!(yaml_config, cwd_location.join("test/test.yaml"));
+        assert_eq!(yaml_config, cwd_location.join("test/test.yml"));
         assert_eq!(ron_config, cwd_location.join("test/test.ron"));
         assert_eq!(bin_config, cwd_location.join("test/test.bin"));
     }
@@ -356,35 +356,35 @@ mod tests {
     fn test_get_configuration_path_with_custom_app_name_path_config() {
         let toml_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.toml"),
             ConfigType::Toml,
             ConfigLocation::Config,
         )
         .unwrap();
         let json_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.json"),
             ConfigType::Json,
             ConfigLocation::Config,
         )
         .unwrap();
         let yaml_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.yml"),
             ConfigType::Yaml,
             ConfigLocation::Config,
         )
         .unwrap();
         let ron_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.ron"),
             ConfigType::Ron,
             ConfigLocation::Config,
         )
         .unwrap();
         let bin_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.bin"),
             ConfigType::Bin,
             ConfigLocation::Config,
         )
@@ -394,7 +394,7 @@ mod tests {
 
         assert_eq!(toml_config, config_location.join("test/custom.toml"));
         assert_eq!(json_config, config_location.join("test/custom.json"));
-        assert_eq!(yaml_config, config_location.join("test/custom.yaml"));
+        assert_eq!(yaml_config, config_location.join("test/custom.yml"));
         assert_eq!(ron_config, config_location.join("test/custom.ron"));
         assert_eq!(bin_config, config_location.join("test/custom.bin"));
     }
@@ -403,35 +403,35 @@ mod tests {
     fn test_get_configuration_path_with_custom_app_name_path_cache() {
         let toml_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.toml"),
             ConfigType::Toml,
             ConfigLocation::Cache,
         )
         .unwrap();
         let json_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.json"),
             ConfigType::Json,
             ConfigLocation::Cache,
         )
         .unwrap();
         let yaml_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.yml"),
             ConfigType::Yaml,
             ConfigLocation::Cache,
         )
         .unwrap();
         let ron_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.ron"),
             ConfigType::Ron,
             ConfigLocation::Cache,
         )
         .unwrap();
         let bin_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.bin"),
             ConfigType::Bin,
             ConfigLocation::Cache,
         )
@@ -441,7 +441,7 @@ mod tests {
 
         assert_eq!(toml_config, cache_location.join("test/custom.toml"));
         assert_eq!(json_config, cache_location.join("test/custom.json"));
-        assert_eq!(yaml_config, cache_location.join("test/custom.yaml"));
+        assert_eq!(yaml_config, cache_location.join("test/custom.yml"));
         assert_eq!(ron_config, cache_location.join("test/custom.ron"));
         assert_eq!(bin_config, cache_location.join("test/custom.bin"));
     }
@@ -450,45 +450,45 @@ mod tests {
     fn test_get_configuration_path_with_custom_app_name_path_local_data() {
         let toml_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.toml"),
             ConfigType::Toml,
             ConfigLocation::LocalData,
         )
         .unwrap();
         let json_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.json"),
             ConfigType::Json,
             ConfigLocation::LocalData,
         )
         .unwrap();
         let yaml_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.yml"),
             ConfigType::Yaml,
             ConfigLocation::LocalData,
         )
         .unwrap();
         let ron_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.ron"),
             ConfigType::Ron,
             ConfigLocation::LocalData,
         )
         .unwrap();
         let bin_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.bin"),
             ConfigType::Bin,
             ConfigLocation::LocalData,
         )
         .unwrap();
 
-        let local_data_location = dirs::config_dir().unwrap();
+        let local_data_location = dirs::data_local_dir().unwrap();
 
         assert_eq!(toml_config, local_data_location.join("test/custom.toml"));
         assert_eq!(json_config, local_data_location.join("test/custom.json"));
-        assert_eq!(yaml_config, local_data_location.join("test/custom.yaml"));
+        assert_eq!(yaml_config, local_data_location.join("test/custom.yml"));
         assert_eq!(ron_config, local_data_location.join("test/custom.ron"));
         assert_eq!(bin_config, local_data_location.join("test/custom.bin"));
     }
@@ -497,37 +497,37 @@ mod tests {
     fn test_get_configuration_path_with_custom_app_name_path_cwd() {
         let toml_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.toml"),
             ConfigType::Toml,
             ConfigLocation::Cwd,
         )
         .unwrap();
         let json_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.json"),
             ConfigType::Json,
             ConfigLocation::Cwd,
         )
         .unwrap();
         let yaml_config = get_configuration_path(
             "test",
-            Some("custom"),
+            Some("custom.yml"),
             ConfigType::Yaml,
             ConfigLocation::Cwd,
         )
         .unwrap();
         let ron_config =
-            get_configuration_path("test", Some("custom"), ConfigType::Ron, ConfigLocation::Cwd)
+            get_configuration_path("test", Some("custom.ron"), ConfigType::Ron, ConfigLocation::Cwd)
                 .unwrap();
         let bin_config =
-            get_configuration_path("test", Some("custom"), ConfigType::Bin, ConfigLocation::Cwd)
+            get_configuration_path("test", Some("custom.bin"), ConfigType::Bin, ConfigLocation::Cwd)
                 .unwrap();
 
         let cwd_location = std::env::current_dir().unwrap();
 
         assert_eq!(toml_config, cwd_location.join("test/custom.toml"));
         assert_eq!(json_config, cwd_location.join("test/custom.json"));
-        assert_eq!(yaml_config, cwd_location.join("test/custom.yaml"));
+        assert_eq!(yaml_config, cwd_location.join("test/custom.yml"));
         assert_eq!(ron_config, cwd_location.join("test/custom.ron"));
         assert_eq!(bin_config, cwd_location.join("test/custom.bin"));
     }
