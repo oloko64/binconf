@@ -1,9 +1,8 @@
 use md5::{Digest, Md5};
 use std::io::{Read, Write};
 
-use crate::{ConfigError, ConfigLocation};
+use crate::{ConfigError, ConfigLocation, ConfigType};
 
-const BIN_EXTENSION: &str = "bin";
 const MD5_BYTE_LENGTH: usize = 16;
 
 /// Loads a config file from the config, cache, cwd, or local data directory of the current user. In `binary` format.
@@ -12,6 +11,12 @@ const MD5_BYTE_LENGTH: usize = 16;
 ///
 /// If the flag `reset_conf_on_err` is set to `true`, the config file will be reset to the default config if
 /// the deserialization fails, if set to `false` an error will be returned.
+///
+/// # Errors
+///
+/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while deserializing the config.
+///
+/// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
 ///
 /// # Example
 ///
@@ -28,12 +33,6 @@ const MD5_BYTE_LENGTH: usize = 16;
 /// let config = binconf::load_bin::<TestConfig>("test-binconf-read-bin", None, Config, false).unwrap();
 /// assert_eq!(config, TestConfig::default());
 /// ```
-///
-/// # Errors
-///
-/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while deserializing the config.
-///
-/// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
 
 pub fn load_bin<'a, T>(
     app_name: impl AsRef<str>,
@@ -47,7 +46,7 @@ where
     let config_file_path = crate::config_location(
         app_name.as_ref(),
         config_name.into(),
-        BIN_EXTENSION,
+        ConfigType::Bin.as_str(),
         location.as_ref(),
     )?;
 
@@ -110,6 +109,10 @@ where
 ///
 /// It will store a config file, serializing it with the `bincode` crate.
 ///
+/// # Errors
+///
+/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while serializing the config.
+///
 /// # Example
 ///
 /// ```
@@ -132,10 +135,6 @@ where
 /// let config = binconf::load_bin::<TestConfig>("test-binconf-store-bin", None, Config, false).unwrap();
 /// assert_eq!(config, test_config);
 /// ```
-///
-/// # Errors
-///
-/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while serializing the config.
 
 pub fn store_bin<'a, T>(
     app_name: impl AsRef<str>,
@@ -149,7 +148,7 @@ where
     let config_file_path = crate::config_location(
         app_name.as_ref(),
         config_name.into(),
-        BIN_EXTENSION,
+        ConfigType::Bin.as_str(),
         location.as_ref(),
     )?;
 
