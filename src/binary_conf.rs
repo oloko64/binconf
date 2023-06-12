@@ -33,7 +33,6 @@ const HASH_BYTE_LENGTH: usize = 16;
 /// let config = binconf::load_bin::<TestConfig>("test-binconf-read-bin", None, Config, false).unwrap();
 /// assert_eq!(config, TestConfig::default());
 /// ```
-
 pub fn load_bin<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
@@ -43,12 +42,76 @@ pub fn load_bin<'a, T>(
 where
     T: Default + serde::Serialize + serde::de::DeserializeOwned,
 {
-    let config_file_path = crate::config_location(
+    load_bin_internal(
         app_name.as_ref(),
         config_name.into(),
-        ConfigType::Bin.as_str(),
         location.as_ref(),
-    )?;
+        reset_conf_on_err,
+        false,
+    )
+}
+
+/// Loads a config file from the config, cache, cwd, or local data directory of the current user. **Without verifying the hash**. In `binary` format.
+///
+/// This is a fallback function, if the hash verification fails, you could try to load the config with this function.
+///
+/// It's **not recommended** to use this function over the [`load_bin`], as it could lead to corrupted data being loaded.
+///
+/// If the deserialization fails with the flag `reset_conf_on_err` set to `true`, the config file will be reset to the default config and a new hash will be generated.
+///
+/// # Errors
+///
+/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while deserializing the config.
+///
+/// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
+///
+/// If the file being read is less than 16 bytes, an error will be returned. It assumes that the first 16 bytes are the hash, even without verifying it, as this could lead to corrupted data being loaded more often.
+///
+/// # Example
+///
+/// ```
+/// use binconf::ConfigLocation::{Cache, Config, LocalData, Cwd};
+/// use serde::{Deserialize, Serialize};
+///
+/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
+/// struct TestConfig {
+///    test: String,
+///    test_vec: Vec<u8>,
+/// }
+///
+/// let config = binconf::load_bin::<TestConfig>("test-binconf-read-bin", None, Config, false).unwrap();
+/// assert_eq!(config, TestConfig::default());
+/// ```
+pub fn load_bin_skip_check<'a, T>(
+    app_name: impl AsRef<str>,
+    config_name: impl Into<Option<&'a str>>,
+    location: impl AsRef<ConfigLocation>,
+    reset_conf_on_err: bool,
+) -> Result<T, ConfigError>
+where
+    T: Default + serde::Serialize + serde::de::DeserializeOwned,
+{
+    load_bin_internal(
+        app_name.as_ref(),
+        config_name.into(),
+        location.as_ref(),
+        reset_conf_on_err,
+        true,
+    )
+}
+
+fn load_bin_internal<T>(
+    app_name: &str,
+    config_name: Option<&str>,
+    location: &ConfigLocation,
+    reset_conf_on_err: bool,
+    skip_hash_check: bool,
+) -> Result<T, ConfigError>
+where
+    T: Default + serde::Serialize + serde::de::DeserializeOwned,
+{
+    let config_file_path =
+        crate::config_location(app_name, config_name, ConfigType::Bin.as_str(), location)?;
 
     let save_default_conf = || {
         let default_config = T::default();
@@ -77,16 +140,17 @@ where
         if reset_conf_on_err {
             return save_default_conf();
         }
-        return Err(ConfigError::HashMismatch);
+        return Err(ConfigError::CorruptedHashSector);
     }
+    if !skip_hash_check {
+        let (binary_hash_from_file, binary_hash_from_data) = get_hash_from_file_and_data(&data);
 
-    let (binary_hash_from_file, binary_hash_from_data) = get_hash_from_file_and_data(&data);
-
-    if binary_hash_from_file != binary_hash_from_data {
-        if reset_conf_on_err {
-            return save_default_conf();
+        if binary_hash_from_file != binary_hash_from_data {
+            if reset_conf_on_err {
+                return save_default_conf();
+            }
+            return Err(ConfigError::HashMismatch);
         }
-        return Err(ConfigError::HashMismatch);
     }
 
     // The first 16 bytes are the `xxh3_128` hash, the rest is the serialized data
@@ -135,7 +199,6 @@ where
 /// let config = binconf::load_bin::<TestConfig>("test-binconf-store-bin", None, Config, false).unwrap();
 /// assert_eq!(config, test_config);
 /// ```
-
 pub fn store_bin<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
@@ -214,6 +277,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::get_configuration_path;
 
     use serde::{Deserialize, Serialize};
     use ConfigLocation::{Cache, Config, Cwd, LocalData};
@@ -423,5 +488,56 @@ mod tests {
         let config: TestConfig =
             load_bin("test-binconf-save_config_user_cwd-bin", None, Cwd, false).unwrap();
         assert_eq!(config, data);
+    }
+
+    #[test]
+    fn load_config_fallback() {
+        let data = String::from("test of corrupted data");
+
+        store_bin("test-binconf-load_config_fallback-bin", None, Config, &data).unwrap();
+
+        assert!(
+            load_bin::<String>("test-binconf-load_config_fallback-bin", None, Config, false)
+                .is_ok()
+        );
+
+        // Corrupt data
+        let mut file = std::fs::File::open(
+            get_configuration_path(
+                "test-binconf-load_config_fallback-bin",
+                None,
+                ConfigType::Bin,
+                Config,
+            )
+            .unwrap(),
+        )
+        .unwrap();
+
+        let mut hash_buf = [0; 16];
+        let mut data_buf = Vec::new();
+        file.read_exact(&mut hash_buf).unwrap();
+        file.read_to_end(&mut data_buf).unwrap();
+
+        let new_data = String::from("test of corrupted dato");
+        let new_full_data = [&hash_buf[..], new_data.as_bytes()].concat();
+
+        file.write_all(&new_full_data[..]).unwrap();
+
+        // Read corrupted data without fallback (should fail)
+        assert!(
+            load_bin::<String>("test-binconf-load_config_fallback-bin", None, Config, false)
+                .is_err()
+        );
+
+        // Read corrupted data with fallback (should succeed)
+        let config = load_bin_skip_check::<String>(
+            "test-binconf-load_config_fallback-bin",
+            None,
+            Config,
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(config, new_data);
     }
 }
