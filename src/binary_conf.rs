@@ -1,9 +1,9 @@
-use md5::{Digest, Md5};
 use std::io::{Read, Write};
+use xxhash_rust::xxh3::xxh3_128;
 
 use crate::{ConfigError, ConfigLocation, ConfigType};
 
-const MD5_BYTE_LENGTH: usize = 16;
+const HASH_BYTE_LENGTH: usize = 16;
 
 /// Loads a config file from the config, cache, cwd, or local data directory of the current user. In `binary` format.
 ///
@@ -72,8 +72,8 @@ where
     let mut data = Vec::new();
     reader.read_to_end(&mut data).map_err(ConfigError::Io)?;
 
-    // If the file is empty, or smaller than 16 bytes, we can't have a `md5` hash
-    if data.len() < MD5_BYTE_LENGTH {
+    // If the file is empty, or smaller than 16 bytes, we can't have a `xxh3_128` hash
+    if data.len() < HASH_BYTE_LENGTH {
         if reset_conf_on_err {
             return save_default_conf();
         }
@@ -89,8 +89,8 @@ where
         return Err(ConfigError::HashMismatch);
     }
 
-    // The first 16 bytes are the `md5` hash, the rest is the serialized data
-    let binary_data_without_hash = &data[MD5_BYTE_LENGTH..];
+    // The first 16 bytes are the `xxh3_128` hash, the rest is the serialized data
+    let binary_data_without_hash = &data[HASH_BYTE_LENGTH..];
     let config: T = match bincode::deserialize_from(binary_data_without_hash) {
         Ok(config) => config,
         Err(err) => {
@@ -162,56 +162,51 @@ where
     Ok(())
 }
 
-/// Returns the `md5` hash of the file and the `md5` hash of the data.
+/// Returns the `xxh3_128` hash of the file and the `xxh3_128` hash of the data.
 ///
-/// The first element of the tuple is the `md5` hash of the file, the second element is the `md5` hash of the data.
+/// The first element of the tuple is the `xxh3_128` hash of the file, the second element is the `xxh3_128` hash of the data.
 ///
-/// If the data is corrupted, the `md5` hash of the file and the `md5` hash of the data will not match.
+/// If the data is corrupted, the `xxh3_128` hash of the file and the `xxh3_128` hash of the data will not match.
 fn get_hash_from_file_and_data(data: &[u8]) -> (&[u8], Vec<u8>) {
-    // The first 128 bits (16 bytes) of the data will be the md5 hash of the data.
-    let binary_hash_from_file = &data[..MD5_BYTE_LENGTH];
+    // The first 64 bits (16 bytes) of the data will be the xxh3_128 hash of the data.
+    let binary_hash_from_file = &data[..HASH_BYTE_LENGTH];
 
     // The rest of the data will be the serialized data.
-    let binary_data_without_hash = &data[MD5_BYTE_LENGTH..];
+    let binary_data_without_hash = &data[HASH_BYTE_LENGTH..];
 
-    let mut hasher = Md5::new();
-    hasher.update(binary_data_without_hash);
+    let binary_hash_from_data = &xxh3_128(binary_data_without_hash).to_le_bytes()[..];
 
-    let binary_hash_from_data: &[u8] = &hasher.finalize()[..];
-
-    // The `md5` hash should be 128 bits (16 bytes) long. If it's not, something went wrong.
+    // The `xxh3_128` hash should be 64 bits (16 bytes) long. If it's not, something went wrong.
     // This prevents a vec allocation with incorrect size.
-    assert!(binary_hash_from_data.len() == MD5_BYTE_LENGTH);
+    assert!(binary_hash_from_data.len() == HASH_BYTE_LENGTH);
 
     (binary_hash_from_file, binary_hash_from_data.to_vec())
 }
 
 /// Prepares the data to be stored in a file.
 ///
-/// It will calculate the `md5` hash of the data and prepend it to the data.
+/// It will calculate the `xxh3_128` hash of the data and prepend it to the data.
 ///
 /// Returns the binary data with the hash prepended.
 ///
-/// The first `128 bits (16 bytes)` of the data will be the `md5` hash of the data, the rest of the data will be the serialized data.
+/// The first `64 bits (16 bytes)` of the data will be the `xxh3_128` hash of the data, the rest of the data will be the serialized data.
 fn prepare_serialized_data<T>(data: T) -> Result<Vec<u8>, ConfigError>
 where
     T: serde::Serialize,
 {
-    let mut hasher = Md5::new();
     // Create a buffer with 16 bytes zeroed out, and append the serialized data to it.
     let mut full_data = [
-        vec![0; MD5_BYTE_LENGTH],
+        vec![0; HASH_BYTE_LENGTH],
         bincode::serialize(&data).map_err(ConfigError::Bincode)?,
     ]
     .concat();
-    // Calculate the `md5` hash of the serialized data.
-    hasher.update(&full_data[MD5_BYTE_LENGTH..]);
+    // Calculate the `xxh3_128` hash of the serialized data.
 
-    let hash: &[u8] = &hasher.finalize()[..];
+    let hash = &xxh3_128(&full_data[HASH_BYTE_LENGTH..]).to_le_bytes()[..];
 
-    // Prepend the `md5` hash to the binary data. If the hash length is not 16 bytes, this will panic. This should never happen as the `md5` hash is always 16 bytes.
+    // Prepend the `xxh3_128` hash to the binary data. If the hash length is not 16 bytes, this will panic. This should never happen as the `xxh3_128` hash is always 16 bytes.
     // This function will panic if the two slices have different lengths.
-    full_data[..MD5_BYTE_LENGTH].clone_from_slice(hash);
+    full_data[..HASH_BYTE_LENGTH].clone_from_slice(hash);
 
     Ok(full_data)
 }

@@ -516,12 +516,20 @@ mod tests {
             ConfigLocation::Cwd,
         )
         .unwrap();
-        let ron_config =
-            get_configuration_path("test", Some("custom.ron"), ConfigType::Ron, ConfigLocation::Cwd)
-                .unwrap();
-        let bin_config =
-            get_configuration_path("test", Some("custom.bin"), ConfigType::Bin, ConfigLocation::Cwd)
-                .unwrap();
+        let ron_config = get_configuration_path(
+            "test",
+            Some("custom.ron"),
+            ConfigType::Ron,
+            ConfigLocation::Cwd,
+        )
+        .unwrap();
+        let bin_config = get_configuration_path(
+            "test",
+            Some("custom.bin"),
+            ConfigType::Bin,
+            ConfigLocation::Cwd,
+        )
+        .unwrap();
 
         let cwd_location = std::env::current_dir().unwrap();
 
