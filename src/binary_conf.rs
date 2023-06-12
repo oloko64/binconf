@@ -53,11 +53,14 @@ where
 
 /// Loads a config file from the config, cache, cwd, or local data directory of the current user. **Without verifying the hash**. In `binary` format.
 ///
-/// This is a fallback function, if the hash verification fails, you could try to load the config with this function.
+/// This is a fallback function, if the hash verification fails, you could try to load the config with this function. Only use this function if you get a [`ConfigError::HashMismatch`] error,
+/// other errors **will not be handled** by this function.
 ///
 /// It's **not recommended** to use this function over the [`load_bin`], as it could lead to corrupted data being loaded.
 ///
 /// If the deserialization fails with the flag `reset_conf_on_err` set to `true`, the config file will be reset to the default config and a new hash will be generated.
+///
+/// Even with the flag `reset_conf_on_err` is set to `true`, the config file will **not** be reset to the default config on a [`ConfigError::HashMismatch`] error.
 ///
 /// # Errors
 ///
@@ -79,7 +82,8 @@ where
 ///    test_vec: Vec<u8>,
 /// }
 ///
-/// let config = binconf::load_bin::<TestConfig>("test-binconf-read-bin", None, Config, false).unwrap();
+///let config = binconf::load_bin_skip_check("test-binconf-read-bin", None, Config, false).unwrap()
+///
 /// assert_eq!(config, TestConfig::default());
 /// ```
 pub fn load_bin_skip_check<'a, T>(
@@ -142,6 +146,7 @@ where
         }
         return Err(ConfigError::CorruptedHashSector);
     }
+
     if !skip_hash_check {
         let (binary_hash_from_file, binary_hash_from_data) = get_hash_from_file_and_data(&data);
 
@@ -276,6 +281,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::io::Seek;
+
     use super::*;
 
     use crate::get_configuration_path;
@@ -496,32 +503,37 @@ mod tests {
 
         store_bin("test-binconf-load_config_fallback-bin", None, Config, &data).unwrap();
 
-        assert!(
+        assert_eq!(
             load_bin::<String>("test-binconf-load_config_fallback-bin", None, Config, false)
-                .is_ok()
+                .unwrap(),
+            data
         );
 
         // Corrupt data
-        let mut file = std::fs::File::open(
-            get_configuration_path(
-                "test-binconf-load_config_fallback-bin",
-                None,
-                ConfigType::Bin,
-                Config,
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .read(true)
+            .open(
+                get_configuration_path(
+                    "test-binconf-load_config_fallback-bin",
+                    None,
+                    ConfigType::Bin,
+                    Config,
+                )
+                .unwrap(),
             )
-            .unwrap(),
-        )
-        .unwrap();
+            .unwrap();
 
-        let mut hash_buf = [0; 16];
-        let mut data_buf = Vec::new();
-        file.read_exact(&mut hash_buf).unwrap();
-        file.read_to_end(&mut data_buf).unwrap();
+        let mut new_data = Vec::new();
+        file.read_to_end(&mut new_data).unwrap();
 
-        let new_data = String::from("test of corrupted dato");
-        let new_full_data = [&hash_buf[..], new_data.as_bytes()].concat();
+        if let Some(last) = new_data.last_mut() {
+            // Change last byte to char `o`
+            *last = 0x6F;
+        }
 
-        file.write_all(&new_full_data[..]).unwrap();
+        file.seek(std::io::SeekFrom::Start(0)).unwrap();
+        file.write_all(&new_data[..]).unwrap();
 
         // Read corrupted data without fallback (should fail)
         assert!(
@@ -530,7 +542,7 @@ mod tests {
         );
 
         // Read corrupted data with fallback (should succeed)
-        let config = load_bin_skip_check::<String>(
+        let corrupted_data = load_bin_skip_check::<String>(
             "test-binconf-load_config_fallback-bin",
             None,
             Config,
@@ -538,6 +550,6 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(config, new_data);
+        assert_eq!(corrupted_data, String::from_utf8_lossy(&new_data[24..]));
     }
 }
