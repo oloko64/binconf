@@ -82,7 +82,7 @@ where
 ///    test_vec: Vec<u8>,
 /// }
 ///
-///let config = binconf::load_bin_skip_check("test-binconf-read-bin", None, Config, false).unwrap()
+///let config = binconf::load_bin_skip_check::<TestConfig>("test-binconf-read-bin", None, Config, false).unwrap();
 ///
 /// assert_eq!(config, TestConfig::default());
 /// ```
