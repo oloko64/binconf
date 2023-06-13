@@ -1,9 +1,9 @@
-use md5::{Digest, Md5};
 use std::io::{Read, Write};
+use xxhash_rust::xxh3::xxh3_128;
 
 use crate::{ConfigError, ConfigLocation, ConfigType};
 
-const MD5_BYTE_LENGTH: usize = 16;
+const HASH_BYTE_LENGTH: usize = 16;
 
 /// Loads a config file from the config, cache, cwd, or local data directory of the current user. In `binary` format.
 ///
@@ -33,7 +33,6 @@ const MD5_BYTE_LENGTH: usize = 16;
 /// let config = binconf::load_bin::<TestConfig>("test-binconf-read-bin", None, Config, false).unwrap();
 /// assert_eq!(config, TestConfig::default());
 /// ```
-
 pub fn load_bin<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
@@ -43,12 +42,80 @@ pub fn load_bin<'a, T>(
 where
     T: Default + serde::Serialize + serde::de::DeserializeOwned,
 {
-    let config_file_path = crate::config_location(
+    load_bin_internal(
         app_name.as_ref(),
         config_name.into(),
-        ConfigType::Bin.as_str(),
         location.as_ref(),
-    )?;
+        reset_conf_on_err,
+        false,
+    )
+}
+
+/// Loads a config file from the config, cache, cwd, or local data directory of the current user. **Without verifying the hash**. In `binary` format.
+///
+/// This is a fallback function, if the hash verification fails, you could try to load the config with this function. Only use this function if you get a [`ConfigError::HashMismatch`] error,
+/// other errors **will not be handled** by this function.
+///
+/// It's **not recommended** to use this function over the [`load_bin`], as it could lead to corrupted data being loaded.
+///
+/// If the deserialization fails with the flag `reset_conf_on_err` set to `true`, the config file will be reset to the default config and a new hash will be generated.
+///
+/// Even with the flag `reset_conf_on_err` is set to `true`, the config file will **not** be reset to the default config on a [`ConfigError::HashMismatch`] error.
+///
+/// # Errors
+///
+/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while deserializing the config.
+///
+/// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
+///
+/// If the file being read is less than 16 bytes, an error will be returned. It assumes that the first 16 bytes are the hash, even without verifying it, as this could lead to corrupted data being loaded more often.
+///
+/// # Example
+///
+/// ```
+/// use binconf::ConfigLocation::{Cache, Config, LocalData, Cwd};
+/// use serde::{Deserialize, Serialize};
+///
+/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
+/// struct TestConfig {
+///    test: String,
+///    test_vec: Vec<u8>,
+/// }
+///
+///let config = binconf::load_bin_skip_check::<TestConfig>("test-binconf-read-bin", None, Config, false).unwrap();
+///
+/// assert_eq!(config, TestConfig::default());
+/// ```
+pub fn load_bin_skip_check<'a, T>(
+    app_name: impl AsRef<str>,
+    config_name: impl Into<Option<&'a str>>,
+    location: impl AsRef<ConfigLocation>,
+    reset_conf_on_err: bool,
+) -> Result<T, ConfigError>
+where
+    T: Default + serde::Serialize + serde::de::DeserializeOwned,
+{
+    load_bin_internal(
+        app_name.as_ref(),
+        config_name.into(),
+        location.as_ref(),
+        reset_conf_on_err,
+        true,
+    )
+}
+
+fn load_bin_internal<T>(
+    app_name: &str,
+    config_name: Option<&str>,
+    location: &ConfigLocation,
+    reset_conf_on_err: bool,
+    skip_hash_check: bool,
+) -> Result<T, ConfigError>
+where
+    T: Default + serde::Serialize + serde::de::DeserializeOwned,
+{
+    let config_file_path =
+        crate::config_location(app_name, config_name, ConfigType::Bin.as_str(), location)?;
 
     let save_default_conf = || {
         let default_config = T::default();
@@ -72,25 +139,27 @@ where
     let mut data = Vec::new();
     reader.read_to_end(&mut data).map_err(ConfigError::Io)?;
 
-    // If the file is empty, or smaller than 16 bytes, we can't have a `md5` hash
-    if data.len() < MD5_BYTE_LENGTH {
+    // If the file is empty, or smaller than 16 bytes, we can't have a `xxh3_128` hash
+    if data.len() < HASH_BYTE_LENGTH {
         if reset_conf_on_err {
             return save_default_conf();
         }
-        return Err(ConfigError::HashMismatch);
+        return Err(ConfigError::CorruptedHashSector);
     }
 
-    let (binary_hash_from_file, binary_hash_from_data) = get_hash_from_file_and_data(&data);
+    if !skip_hash_check {
+        let (binary_hash_from_file, binary_hash_from_data) = get_hash_from_file_and_data(&data);
 
-    if binary_hash_from_file != binary_hash_from_data {
-        if reset_conf_on_err {
-            return save_default_conf();
+        if binary_hash_from_file != binary_hash_from_data {
+            if reset_conf_on_err {
+                return save_default_conf();
+            }
+            return Err(ConfigError::HashMismatch);
         }
-        return Err(ConfigError::HashMismatch);
     }
 
-    // The first 16 bytes are the `md5` hash, the rest is the serialized data
-    let binary_data_without_hash = &data[MD5_BYTE_LENGTH..];
+    // The first 16 bytes are the `xxh3_128` hash, the rest is the serialized data
+    let binary_data_without_hash = &data[HASH_BYTE_LENGTH..];
     let config: T = match bincode::deserialize_from(binary_data_without_hash) {
         Ok(config) => config,
         Err(err) => {
@@ -135,7 +204,6 @@ where
 /// let config = binconf::load_bin::<TestConfig>("test-binconf-store-bin", None, Config, false).unwrap();
 /// assert_eq!(config, test_config);
 /// ```
-
 pub fn store_bin<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
@@ -162,63 +230,62 @@ where
     Ok(())
 }
 
-/// Returns the `md5` hash of the file and the `md5` hash of the data.
+/// Returns the `xxh3_128` hash of the file and the `xxh3_128` hash of the data.
 ///
-/// The first element of the tuple is the `md5` hash of the file, the second element is the `md5` hash of the data.
+/// The first element of the tuple is the `xxh3_128` hash of the file, the second element is the `xxh3_128` hash of the data.
 ///
-/// If the data is corrupted, the `md5` hash of the file and the `md5` hash of the data will not match.
+/// If the data is corrupted, the `xxh3_128` hash of the file and the `xxh3_128` hash of the data will not match.
 fn get_hash_from_file_and_data(data: &[u8]) -> (&[u8], Vec<u8>) {
-    // The first 128 bits (16 bytes) of the data will be the md5 hash of the data.
-    let binary_hash_from_file = &data[..MD5_BYTE_LENGTH];
+    // The first 64 bits (16 bytes) of the data will be the xxh3_128 hash of the data.
+    let binary_hash_from_file = &data[..HASH_BYTE_LENGTH];
 
     // The rest of the data will be the serialized data.
-    let binary_data_without_hash = &data[MD5_BYTE_LENGTH..];
+    let binary_data_without_hash = &data[HASH_BYTE_LENGTH..];
 
-    let mut hasher = Md5::new();
-    hasher.update(binary_data_without_hash);
+    let binary_hash_from_data = &xxh3_128(binary_data_without_hash).to_le_bytes()[..];
 
-    let binary_hash_from_data: &[u8] = &hasher.finalize()[..];
-
-    // The `md5` hash should be 128 bits (16 bytes) long. If it's not, something went wrong.
+    // The `xxh3_128` hash should be 64 bits (16 bytes) long. If it's not, something went wrong.
     // This prevents a vec allocation with incorrect size.
-    assert!(binary_hash_from_data.len() == MD5_BYTE_LENGTH);
+    assert!(binary_hash_from_data.len() == HASH_BYTE_LENGTH);
 
     (binary_hash_from_file, binary_hash_from_data.to_vec())
 }
 
 /// Prepares the data to be stored in a file.
 ///
-/// It will calculate the `md5` hash of the data and prepend it to the data.
+/// It will calculate the `xxh3_128` hash of the data and prepend it to the data.
 ///
 /// Returns the binary data with the hash prepended.
 ///
-/// The first `128 bits (16 bytes)` of the data will be the `md5` hash of the data, the rest of the data will be the serialized data.
+/// The first `64 bits (16 bytes)` of the data will be the `xxh3_128` hash of the data, the rest of the data will be the serialized data.
 fn prepare_serialized_data<T>(data: T) -> Result<Vec<u8>, ConfigError>
 where
     T: serde::Serialize,
 {
-    let mut hasher = Md5::new();
     // Create a buffer with 16 bytes zeroed out, and append the serialized data to it.
     let mut full_data = [
-        vec![0; MD5_BYTE_LENGTH],
+        vec![0; HASH_BYTE_LENGTH],
         bincode::serialize(&data).map_err(ConfigError::Bincode)?,
     ]
     .concat();
-    // Calculate the `md5` hash of the serialized data.
-    hasher.update(&full_data[MD5_BYTE_LENGTH..]);
+    // Calculate the `xxh3_128` hash of the serialized data.
 
-    let hash: &[u8] = &hasher.finalize()[..];
+    let hash = &xxh3_128(&full_data[HASH_BYTE_LENGTH..]).to_le_bytes()[..];
 
-    // Prepend the `md5` hash to the binary data. If the hash length is not 16 bytes, this will panic. This should never happen as the `md5` hash is always 16 bytes.
+    // Prepend the `xxh3_128` hash to the binary data. If the hash length is not 16 bytes, this will panic. This should never happen as the `xxh3_128` hash is always 16 bytes.
     // This function will panic if the two slices have different lengths.
-    full_data[..MD5_BYTE_LENGTH].clone_from_slice(hash);
+    full_data[..HASH_BYTE_LENGTH].clone_from_slice(hash);
 
     Ok(full_data)
 }
 
 #[cfg(test)]
 mod tests {
+    use std::io::Seek;
+
     use super::*;
+
+    use crate::get_configuration_path;
 
     use serde::{Deserialize, Serialize};
     use ConfigLocation::{Cache, Config, Cwd, LocalData};
@@ -428,5 +495,61 @@ mod tests {
         let config: TestConfig =
             load_bin("test-binconf-save_config_user_cwd-bin", None, Cwd, false).unwrap();
         assert_eq!(config, data);
+    }
+
+    #[test]
+    fn load_config_fallback() {
+        let data = String::from("test of corrupted data");
+
+        store_bin("test-binconf-load_config_fallback-bin", None, Config, &data).unwrap();
+
+        assert_eq!(
+            load_bin::<String>("test-binconf-load_config_fallback-bin", None, Config, false)
+                .unwrap(),
+            data
+        );
+
+        // Corrupt data
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .read(true)
+            .open(
+                get_configuration_path(
+                    "test-binconf-load_config_fallback-bin",
+                    None,
+                    ConfigType::Bin,
+                    Config,
+                )
+                .unwrap(),
+            )
+            .unwrap();
+
+        let mut new_data = Vec::new();
+        file.read_to_end(&mut new_data).unwrap();
+
+        if let Some(last) = new_data.last_mut() {
+            // Change last byte to char `o`
+            *last = 0x6F;
+        }
+
+        file.seek(std::io::SeekFrom::Start(0)).unwrap();
+        file.write_all(&new_data[..]).unwrap();
+
+        // Read corrupted data without fallback (should fail)
+        assert!(
+            load_bin::<String>("test-binconf-load_config_fallback-bin", None, Config, false)
+                .is_err()
+        );
+
+        // Read corrupted data with fallback (should succeed)
+        let corrupted_data = load_bin_skip_check::<String>(
+            "test-binconf-load_config_fallback-bin",
+            None,
+            Config,
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(corrupted_data, String::from_utf8_lossy(&new_data[24..]));
     }
 }

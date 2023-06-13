@@ -4,7 +4,9 @@
 
 Save and load from a binary configuration file with ease.
 
-The data is hashed ([md-5](https://crates.io/crates/md-5)) during serialization and validated when deserializing, so you can be sure that the data is not corrupted.
+The data is hashed ([XXH3](https://github.com/Cyan4973/xxHash)) during serialization and validated when deserializing, so you can be sure that the data is not corrupted.
+
+Crate used for XXH3: [xxhash-rust](https://crates.io/crates/xxhash-rust)
 
 ---
 

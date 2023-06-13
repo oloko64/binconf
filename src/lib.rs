@@ -13,7 +13,7 @@ mod yaml_conf;
 mod ron_conf;
 
 #[cfg(feature = "binary-conf")]
-pub use binary_conf::{load_bin, store_bin};
+pub use binary_conf::{load_bin, load_bin_skip_check, store_bin};
 
 #[cfg(feature = "toml-conf")]
 pub use toml_conf::{load_toml, store_toml};
@@ -37,7 +37,7 @@ use std::io::Write;
 
 use std::path::PathBuf;
 
-/// Get the configuration file path used by `load` and `store`
+/// Get the configuration file path used by `load` and `store` functions.
 ///
 /// Useful to show the user where the configuration file is located or will be located. It does not check if the file exists.
 ///
@@ -217,6 +217,9 @@ pub enum ConfigError {
 
     #[cfg(feature = "binary-conf")]
     HashMismatch,
+
+    #[cfg(feature = "binary-conf")]
+    CorruptedHashSector,
 }
 
 impl std::error::Error for ConfigError {}
@@ -249,6 +252,9 @@ impl std::fmt::Display for ConfigError {
 
             #[cfg(feature = "binary-conf")]
             ConfigError::HashMismatch => write!(f, "Hash mismatch"),
+
+            #[cfg(feature = "binary-conf")]
+            ConfigError::CorruptedHashSector => write!(f, "Corrupted hash sector"),
         }
     }
 }
@@ -516,12 +522,20 @@ mod tests {
             ConfigLocation::Cwd,
         )
         .unwrap();
-        let ron_config =
-            get_configuration_path("test", Some("custom.ron"), ConfigType::Ron, ConfigLocation::Cwd)
-                .unwrap();
-        let bin_config =
-            get_configuration_path("test", Some("custom.bin"), ConfigType::Bin, ConfigLocation::Cwd)
-                .unwrap();
+        let ron_config = get_configuration_path(
+            "test",
+            Some("custom.ron"),
+            ConfigType::Ron,
+            ConfigLocation::Cwd,
+        )
+        .unwrap();
+        let bin_config = get_configuration_path(
+            "test",
+            Some("custom.bin"),
+            ConfigType::Bin,
+            ConfigLocation::Cwd,
+        )
+        .unwrap();
 
         let cwd_location = std::env::current_dir().unwrap();
 
