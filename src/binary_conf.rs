@@ -119,25 +119,23 @@ where
 
     let save_default_conf = || {
         let default_config = T::default();
-        let mut file = std::io::BufWriter::new(
-            std::fs::File::create(&config_file_path).map_err(ConfigError::Io)?,
-        );
+        let mut file = std::io::BufWriter::new(std::fs::File::create(&config_file_path)?);
 
         let full_data = prepare_serialized_data(&default_config)?;
-        file.write_all(&full_data).map_err(ConfigError::Io)?;
+        file.write_all(&full_data)?;
 
         Ok(default_config)
     };
 
-    if !config_file_path.try_exists().map_err(ConfigError::Io)? {
+    if !config_file_path.try_exists()? {
         return save_default_conf();
     }
 
-    let file = std::fs::File::open(&config_file_path).map_err(ConfigError::Io)?;
+    let file = std::fs::File::open(&config_file_path)?;
     let mut reader = std::io::BufReader::new(file);
 
     let mut data = Vec::new();
-    reader.read_to_end(&mut data).map_err(ConfigError::Io)?;
+    reader.read_to_end(&mut data)?;
 
     // If the file is empty, or smaller than 16 bytes, we can't have a `xxh3_128` hash
     if data.len() < HASH_BYTE_LENGTH {
@@ -220,12 +218,11 @@ where
         location.as_ref(),
     )?;
 
-    let mut file =
-        std::io::BufWriter::new(std::fs::File::create(config_file_path).map_err(ConfigError::Io)?);
+    let mut file = std::io::BufWriter::new(std::fs::File::create(config_file_path)?);
 
     let full_data = prepare_serialized_data(data)?;
 
-    file.write_all(&full_data[..]).map_err(ConfigError::Io)?;
+    file.write_all(&full_data[..])?;
 
     Ok(())
 }
@@ -263,11 +260,7 @@ where
     T: serde::Serialize,
 {
     // Create a buffer with 16 bytes zeroed out, and append the serialized data to it.
-    let mut full_data = [
-        vec![0; HASH_BYTE_LENGTH],
-        bincode::serialize(&data).map_err(ConfigError::Bincode)?,
-    ]
-    .concat();
+    let mut full_data = [vec![0; HASH_BYTE_LENGTH], bincode::serialize(&data)?].concat();
     // Calculate the `xxh3_128` hash of the serialized data.
 
     let hash = &xxh3_128(&full_data[HASH_BYTE_LENGTH..]).to_le_bytes()[..];

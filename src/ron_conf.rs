@@ -50,24 +50,23 @@ where
         let ser_config = ron::ser::PrettyConfig::new()
             .depth_limit(4)
             .indentor("\t".to_owned());
-        let ron_str =
-            ron::ser::to_string_pretty(&default_config, ser_config).map_err(ConfigError::RonSer)?;
+        let ron_str = ron::ser::to_string_pretty(&default_config, ser_config)?;
         crate::save_config_str(&config_file_path, &ron_str)?;
         Ok(default_config)
     };
 
-    if !config_file_path.try_exists().map_err(ConfigError::Io)? {
+    if !config_file_path.try_exists()? {
         return save_default_conf();
     }
 
-    let ron_str = read_to_string(&config_file_path).map_err(ConfigError::Io)?;
-    let config = match ron::from_str::<T>(&ron_str).map_err(ConfigError::RonDe) {
+    let ron_str = read_to_string(&config_file_path)?;
+    let config = match ron::from_str::<T>(&ron_str) {
         Ok(config) => config,
         Err(err) => {
             if reset_conf_on_err {
                 return save_default_conf();
             }
-            return Err(err);
+            return Err(err.into());
         }
     };
 
@@ -120,16 +119,14 @@ where
         location.as_ref(),
     )?;
 
-    let mut file =
-        std::io::BufWriter::new(std::fs::File::create(config_file_path).map_err(ConfigError::Io)?);
+    let mut file = std::io::BufWriter::new(std::fs::File::create(config_file_path)?);
 
     let ser_config = ron::ser::PrettyConfig::new()
         .depth_limit(4)
         .indentor("\t".to_owned());
-    let ron_str = ron::ser::to_string_pretty(&data, ser_config).map_err(ConfigError::RonSer)?;
+    let ron_str = ron::ser::to_string_pretty(&data, ser_config)?;
 
-    file.write_all(ron_str.as_bytes())
-        .map_err(ConfigError::Io)?;
+    file.write_all(ron_str.as_bytes())?;
 
     Ok(())
 }
