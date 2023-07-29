@@ -101,13 +101,13 @@ fn config_location(
                 "Local data directory not found",
             )))?
         }
-        ConfigLocation::Cwd => std::env::current_dir().map_err(ConfigError::Io)?,
+        ConfigLocation::Cwd => std::env::current_dir()?,
     };
 
     let conf_dir = conf_dir.join(app_name);
 
-    if !conf_dir.try_exists().map_err(ConfigError::Io)? {
-        std::fs::create_dir_all(&conf_dir).map_err(ConfigError::Io)?;
+    if !conf_dir.try_exists()? {
+        std::fs::create_dir_all(&conf_dir)?;
     }
 
     let conf_file = conf_dir.join(config_name.unwrap_or(&format!("{app_name}.{extension}")));
@@ -182,10 +182,8 @@ impl AsRef<ConfigLocation> for ConfigLocation {
 ))]
 #[inline]
 fn save_config_str(config_file_path: &PathBuf, config_as_str: &str) -> Result<(), ConfigError> {
-    let mut file =
-        std::io::BufWriter::new(std::fs::File::create(config_file_path).map_err(ConfigError::Io)?);
-    file.write_all(config_as_str.as_bytes())
-        .map_err(ConfigError::Io)?;
+    let mut file = std::io::BufWriter::new(std::fs::File::create(config_file_path)?);
+    file.write_all(config_as_str.as_bytes())?;
 
     Ok(())
 }
@@ -220,6 +218,61 @@ pub enum ConfigError {
 
     #[cfg(feature = "binary-conf")]
     CorruptedHashSector,
+}
+
+#[cfg(feature = "yaml-conf")]
+impl From<serde_yaml::Error> for ConfigError {
+    fn from(err: serde_yaml::Error) -> Self {
+        ConfigError::Yaml(err)
+    }
+}
+
+#[cfg(feature = "toml-conf")]
+impl From<toml::de::Error> for ConfigError {
+    fn from(err: toml::de::Error) -> Self {
+        ConfigError::TomlDe(err)
+    }
+}
+
+#[cfg(feature = "toml-conf")]
+impl From<toml::ser::Error> for ConfigError {
+    fn from(err: toml::ser::Error) -> Self {
+        ConfigError::TomlSer(err)
+    }
+}
+
+#[cfg(feature = "ron-conf")]
+impl From<ron::error::SpannedError> for ConfigError {
+    fn from(err: ron::error::SpannedError) -> Self {
+        ConfigError::RonDe(err)
+    }
+}
+
+#[cfg(feature = "ron-conf")]
+impl From<ron::Error> for ConfigError {
+    fn from(err: ron::Error) -> Self {
+        ConfigError::RonSer(err)
+    }
+}
+
+#[cfg(feature = "json-conf")]
+impl From<serde_json::Error> for ConfigError {
+    fn from(err: serde_json::Error) -> Self {
+        ConfigError::Json(err)
+    }
+}
+
+#[cfg(feature = "binary-conf")]
+impl From<bincode::Error> for ConfigError {
+    fn from(err: bincode::Error) -> Self {
+        ConfigError::Bincode(err)
+    }
+}
+
+impl From<std::io::Error> for ConfigError {
+    fn from(err: std::io::Error) -> Self {
+        ConfigError::Io(err)
+    }
 }
 
 impl std::error::Error for ConfigError {}

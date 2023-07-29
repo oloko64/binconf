@@ -47,23 +47,23 @@ where
 
     let save_default_conf = || {
         let default_config = T::default();
-        let json_str = serde_json::to_string_pretty(&default_config).map_err(ConfigError::Json)?;
+        let json_str = serde_json::to_string_pretty(&default_config)?;
         crate::save_config_str(&config_file_path, &json_str)?;
         Ok(default_config)
     };
 
-    if !config_file_path.try_exists().map_err(ConfigError::Io)? {
+    if !config_file_path.try_exists()? {
         return save_default_conf();
     }
 
-    let json_str = read_to_string(&config_file_path).map_err(ConfigError::Io)?;
-    let config = match serde_json::from_str::<T>(&json_str).map_err(ConfigError::Json) {
+    let json_str = read_to_string(&config_file_path)?;
+    let config = match serde_json::from_str::<T>(&json_str) {
         Ok(config) => config,
         Err(err) => {
             if reset_conf_on_err {
                 return save_default_conf();
             }
-            return Err(err);
+            return Err(err.into());
         }
     };
 
@@ -116,13 +116,11 @@ where
         location.as_ref(),
     )?;
 
-    let mut file =
-        std::io::BufWriter::new(std::fs::File::create(config_file_path).map_err(ConfigError::Io)?);
+    let mut file = std::io::BufWriter::new(std::fs::File::create(config_file_path)?);
 
-    let json_str = serde_json::to_string_pretty(&data).map_err(ConfigError::Json)?;
+    let json_str = serde_json::to_string_pretty(&data)?;
 
-    file.write_all(json_str.as_bytes())
-        .map_err(ConfigError::Io)?;
+    file.write_all(json_str.as_bytes())?;
 
     Ok(())
 }
