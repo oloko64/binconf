@@ -115,6 +115,7 @@ fn config_location(
     Ok(conf_file)
 }
 
+#[non_exhaustive]
 pub enum ConfigType {
     #[cfg(feature = "toml-conf")]
     Toml,
