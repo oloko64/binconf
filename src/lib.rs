@@ -188,6 +188,7 @@ fn save_config_str(config_file_path: &PathBuf, config_as_str: &str) -> Result<()
     Ok(())
 }
 
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum ConfigError {
     Io(std::io::Error),
@@ -275,7 +276,40 @@ impl From<std::io::Error> for ConfigError {
     }
 }
 
-impl std::error::Error for ConfigError {}
+impl std::error::Error for ConfigError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ConfigError::Io(err) => Some(err),
+
+            #[cfg(feature = "toml-conf")]
+            ConfigError::TomlSer(err) => Some(err),
+
+            #[cfg(feature = "toml-conf")]
+            ConfigError::TomlDe(err) => Some(err),
+
+            #[cfg(feature = "json-conf")]
+            ConfigError::Json(err) => Some(err),
+
+            #[cfg(feature = "yaml-conf")]
+            ConfigError::Yaml(err) => Some(err),
+
+            #[cfg(feature = "ron-conf")]
+            ConfigError::RonSer(err) => Some(err),
+
+            #[cfg(feature = "ron-conf")]
+            ConfigError::RonDe(err) => Some(err),
+
+            #[cfg(feature = "binary-conf")]
+            ConfigError::Bincode(err) => Some(err),
+
+            #[cfg(feature = "binary-conf")]
+            ConfigError::HashMismatch => None,
+
+            #[cfg(feature = "binary-conf")]
+            ConfigError::CorruptedHashSector => None,
+        }
+    }
+}
 
 impl std::fmt::Display for ConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {

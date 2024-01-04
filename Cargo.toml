@@ -1,6 +1,6 @@
 [package]
 name = "binconf"
-version = "0.2.630"
+version = "0.2.700"
 edition = "2021"
 authors = ["OLoKo64 <reinaldorozatoj.11cg1@aleeas.com>"]
 description = "Save and load from a binary configuration file with ease."
@@ -21,18 +21,18 @@ all-features = true
 [features]
 default = ["binary-conf"]
 full = ["binary-conf", "toml-conf", "json-conf", "yaml-conf", "ron-conf"]
-binary-conf = ["dep:bincode", "dep:xxhash-rust"]
-toml-conf = ["dep:toml"]
-json-conf = ["dep:serde_json"]
-yaml-conf = ["dep:serde_yaml"]
-ron-conf = ["dep:ron"]
+binary-conf = ["bincode", "xxhash-rust"]
+toml-conf = ["toml"]
+json-conf = ["serde_json"]
+yaml-conf = ["serde_yaml"]
+ron-conf = ["ron"]
 
 [dependencies]
 bincode = { version = "1.3.3", optional = true }
 dirs = "5.0.1"
 ron = { version = "0.8.1", optional = true }
-serde = { version = "1.0.192", features = ["derive"] }
-serde_json = { version = "1.0.108", optional = true }
-serde_yaml = { version = "0.9.27", optional = true }
+serde = { version = "1.0.194", features = ["derive"] }
+serde_json = { version = "1.0.110", optional = true }
+serde_yaml = { version = "0.9.30", optional = true }
 toml = { version = "0.8.8", optional = true }
-xxhash-rust = { version = "0.8.7", features = ["xxh3"], optional = true }
+xxhash-rust = { version = "0.8.8", features = ["xxh3"], optional = true }
