@@ -21,11 +21,11 @@ all-features = true
 [features]
 default = ["binary-conf"]
 full = ["binary-conf", "toml-conf", "json-conf", "yaml-conf", "ron-conf"]
-binary-conf = ["bincode", "xxhash-rust"]
-toml-conf = ["toml"]
-json-conf = ["serde_json"]
-yaml-conf = ["serde_yaml"]
-ron-conf = ["ron"]
+binary-conf = ["dep:bincode", "dep:xxhash-rust"]
+toml-conf = ["dep:toml"]
+json-conf = ["dep:serde_json"]
+yaml-conf = ["dep:serde_yaml"]
+ron-conf = ["dep:ron"]
 
 [dependencies]
 bincode = { version = "1.3.3", optional = true }
