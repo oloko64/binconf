@@ -1,6 +1,6 @@
 [package]
 name = "binconf"
-version = "0.2.750"
+version = "0.2.751"
 edition = "2021"
 authors = ["OLoKo64 <reinaldorozatoj.11cg1@aleeas.com>"]
 description = "Save and load from a binary configuration file with ease."

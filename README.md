@@ -10,6 +10,13 @@ Crate used for XXH3: [xxhash-rust](https://crates.io/crates/xxhash-rust)
 
 ---
 
+### Deprecated Features
+
+The `serde_yaml` library is currently [unmaintained](https://github.com/dtolnay/serde-yaml/releases/tag/0.9.34). Although it still functions, I recommend using `serde_json` or `serde_toml` as alternatives while a new replacement is being developed.
+
+
+---
+
 You can also save the configuration using `toml`, `json`, `yaml` and `ron`. You need to enable the respective feature for this. **(hash validation is not supported for `toml`, `json`, `yaml` or `ron`)**
 
 ### Optional Features
