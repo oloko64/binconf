@@ -1,6 +1,6 @@
 [package]
 name = "binconf"
-version = "0.2.751"
+version = "0.3.0"
 edition = "2021"
 authors = ["OLoKo64 <reinaldorozatoj.11cg1@aleeas.com>"]
 description = "Save and load from a binary configuration file with ease."
@@ -19,7 +19,7 @@ name = "examples"
 all-features = true
 
 [features]
-default = ["full"]
+default = ["binary-conf"]
 full = ["binary-conf", "toml-conf", "json-conf", "yaml-conf", "ron-conf"]
 binary-conf = ["dep:bitcode", "dep:xxhash-rust"]
 toml-conf = ["dep:toml"]
