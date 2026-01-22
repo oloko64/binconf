@@ -19,7 +19,7 @@ name = "examples"
 all-features = true
 
 [features]
-default = ["binary-conf"]
+default = ["full"]
 full = ["binary-conf", "toml-conf", "json-conf", "yaml-conf", "ron-conf"]
 binary-conf = ["dep:bitcode", "dep:md-5"]
 toml-conf = ["dep:toml"]
@@ -28,7 +28,7 @@ yaml-conf = ["dep:serde_yaml"]
 ron-conf = ["dep:ron"]
 
 [dependencies]
-bitcode = "0.6.9"
+bitcode = { version = "0.6.9", optional = true }
 dirs = "6.0.0"
 md-5 = { version = "0.10.6", optional = true }
 ron = { version = "0.12.0", optional = true }

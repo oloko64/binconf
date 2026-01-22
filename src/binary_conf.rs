@@ -1,3 +1,4 @@
+use bitcode::{Decode, Encode};
 use md5::{Digest, Md5};
 use std::io::{Read, Write};
 
@@ -35,14 +36,14 @@ const MD5_BYTE_LENGTH: usize = 16;
 ///
 /// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
 
-pub fn load_bin<'a, T>(
+pub fn load_bin<'a, 'b, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
     location: impl AsRef<ConfigLocation>,
     reset_conf_on_err: bool,
 ) -> Result<T, ConfigError>
 where
-    T: Default + serde::Serialize + serde::de::DeserializeOwned,
+    T: Default + Decode<'b> + Encode,
 {
     let config_file_path = crate::config_location(
         app_name.as_ref(),
@@ -92,13 +93,13 @@ where
 
     // The first 16 bytes are the `md5` hash, the rest is the serialized data
     let binary_data_without_hash = &data[MD5_BYTE_LENGTH..];
-    let config: T = match bincode::deserialize_from(binary_data_without_hash) {
+    let config: T = match bitcode::decode(binary_data_without_hash) {
         Ok(config) => config,
         Err(err) => {
             if reset_conf_on_err {
                 save_default_conf()?
             } else {
-                return Err(ConfigError::Bincode(err));
+                return Err(ConfigError::Bitcode(err));
             }
         }
     };
@@ -144,7 +145,7 @@ pub fn store_bin<'a, T>(
     data: T,
 ) -> Result<(), ConfigError>
 where
-    T: serde::Serialize,
+    T: serde::Serialize + Encode,
 {
     let config_file_path = crate::config_location(
         app_name.as_ref(),
@@ -196,15 +197,11 @@ fn get_hash_from_file_and_data(data: &[u8]) -> (&[u8], Vec<u8>) {
 /// The first `128 bits (16 bytes)` of the data will be the `md5` hash of the data, the rest of the data will be the serialized data.
 fn prepare_serialized_data<T>(data: T) -> Result<Vec<u8>, ConfigError>
 where
-    T: serde::Serialize,
+    T: Encode,
 {
     let mut hasher = Md5::new();
-    // Create a buffer with 16 bytes zeroed out, and append the serialized data to it.
-    let mut full_data = [
-        vec![0; MD5_BYTE_LENGTH],
-        bincode::serialize(&data).map_err(ConfigError::Bincode)?,
-    ]
-    .concat();
+    // Create a buffer with 16 bytes zeroed out, and append the encoded data to it.
+    let mut full_data = [vec![0; MD5_BYTE_LENGTH], bitcode::encode(&data)].concat();
     // Calculate the `md5` hash of the serialized data.
     hasher.update(&full_data[MD5_BYTE_LENGTH..]);
 

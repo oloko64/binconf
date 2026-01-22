@@ -134,7 +134,7 @@ pub enum ConfigError {
     RonDe(ron::error::SpannedError),
 
     #[cfg(feature = "binary-conf")]
-    Bincode(bincode::Error),
+    Bitcode(bitcode::Error),
 
     #[cfg(feature = "binary-conf")]
     HashMismatch,
