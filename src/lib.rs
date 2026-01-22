@@ -13,7 +13,7 @@ mod yaml_conf;
 mod ron_conf;
 
 #[cfg(feature = "binary-conf")]
-pub use binary_conf::{load_bin, store_bin};
+pub use binary_conf::{load_bin, store_bin, Decode, DecodeOwned, Encode};
 
 #[cfg(feature = "toml-conf")]
 pub use toml_conf::{load_toml, store_toml};
@@ -148,7 +148,7 @@ impl std::fmt::Display for ConfigError {
             ConfigError::Io(err) => write!(f, "{err}"),
 
             #[cfg(feature = "binary-conf")]
-            ConfigError::Bincode(err) => write!(f, "{err}"),
+            ConfigError::Bitcode(err) => write!(f, "{err}"),
 
             #[cfg(feature = "toml-conf")]
             ConfigError::TomlSer(err) => write!(f, "{err}"),

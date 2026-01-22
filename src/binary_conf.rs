@@ -1,4 +1,3 @@
-use bitcode::{Decode, Encode};
 use md5::{Digest, Md5};
 use std::io::{Read, Write};
 
@@ -6,6 +5,8 @@ use crate::{ConfigError, ConfigLocation};
 
 const BIN_EXTENSION: &str = "bin";
 const MD5_BYTE_LENGTH: usize = 16;
+
+pub use bitcode::{Decode, DecodeOwned, Encode};
 
 /// Loads a config file from the config, cache, cwd, or local data directory of the current user. In `binary` format.
 ///
@@ -36,14 +37,15 @@ const MD5_BYTE_LENGTH: usize = 16;
 ///
 /// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
 
-pub fn load_bin<'a, 'b, T>(
+pub fn load_bin<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
     location: impl AsRef<ConfigLocation>,
     reset_conf_on_err: bool,
 ) -> Result<T, ConfigError>
 where
-    T: Default + Decode<'b> + Encode,
+    T: Default + Encode,
+    for<'de> T: Decode<'de>,
 {
     let config_file_path = crate::config_location(
         app_name.as_ref(),
@@ -117,7 +119,7 @@ where
 /// use binconf::ConfigLocation::{Cache, Config, LocalData, Cwd};
 /// use serde::{Deserialize, Serialize};
 ///
-/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
+/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Encode)]
 /// struct TestConfig {
 ///   test: String,
 ///   test_vec: Vec<u8>,
@@ -142,10 +144,10 @@ pub fn store_bin<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
     location: impl AsRef<ConfigLocation>,
-    data: T,
+    data: &T,
 ) -> Result<(), ConfigError>
 where
-    T: serde::Serialize + Encode,
+    for<'e> T: Encode,
 {
     let config_file_path = crate::config_location(
         app_name.as_ref(),
@@ -195,13 +197,13 @@ fn get_hash_from_file_and_data(data: &[u8]) -> (&[u8], Vec<u8>) {
 /// Returns the binary data with the hash prepended.
 ///
 /// The first `128 bits (16 bytes)` of the data will be the `md5` hash of the data, the rest of the data will be the serialized data.
-fn prepare_serialized_data<T>(data: T) -> Result<Vec<u8>, ConfigError>
+fn prepare_serialized_data<T>(data: &T) -> Result<Vec<u8>, ConfigError>
 where
-    T: Encode,
+    T: bitcode::Encode,
 {
     let mut hasher = Md5::new();
     // Create a buffer with 16 bytes zeroed out, and append the encoded data to it.
-    let mut full_data = [vec![0; MD5_BYTE_LENGTH], bitcode::encode(&data)].concat();
+    let mut full_data = [vec![0; MD5_BYTE_LENGTH], bitcode::encode(data)].concat();
     // Calculate the `md5` hash of the serialized data.
     hasher.update(&full_data[MD5_BYTE_LENGTH..]);
 
@@ -221,13 +223,13 @@ mod tests {
     use serde::{Deserialize, Serialize};
     use ConfigLocation::{Cache, Config, Cwd, LocalData};
 
-    #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Clone)]
+    #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Clone, Encode, Decode)]
     struct TestConfig {
         test: String,
         test_vec: Vec<u8>,
     }
 
-    #[derive(Default, Serialize, Deserialize, Clone, Debug)]
+    #[derive(Default, Serialize, Deserialize, Clone, Debug, Decode, Encode)]
     struct TestConfig2 {
         strings: String,
         vecs: Vec<u8>,
