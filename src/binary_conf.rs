@@ -24,9 +24,8 @@ pub use bitcode::{Decode, DecodeOwned, Encode};
 ///
 /// ```
 /// use binconf::ConfigLocation::{Cache, Config, LocalData, Cwd};
-/// use serde::{Deserialize, Serialize};
 ///
-/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
+/// #[derive(Default, PartialEq, Debug)]
 /// struct TestConfig {
 ///    test: String,
 ///    test_vec: Vec<u8>,
@@ -77,9 +76,8 @@ where
 ///
 /// ```
 /// use binconf::ConfigLocation::{Cache, Config, LocalData, Cwd};
-/// use serde::{Deserialize, Serialize};
 ///
-/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
+/// #[derive(Default, PartialEq, Debug)]
 /// struct TestConfig {
 ///    test: String,
 ///    test_vec: Vec<u8>,
@@ -189,9 +187,8 @@ where
 ///
 /// ```
 /// use binconf::ConfigLocation::{Cache, Config, LocalData, Cwd};
-/// use serde::{Deserialize, Serialize};
 ///
-/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Encode)]
+/// #[derive(Default, PartialEq, Debug, Encode)]
 /// struct TestConfig {
 ///   test: String,
 ///   test_vec: Vec<u8>,
@@ -285,16 +282,15 @@ mod tests {
 
     use crate::get_configuration_path;
 
-    use serde::{Deserialize, Serialize};
     use ConfigLocation::{Cache, Config, Cwd, LocalData};
 
-    #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Clone, Encode, Decode)]
+    #[derive(Default, PartialEq, Debug, Clone, Encode, Decode)]
     struct TestConfig {
         test: String,
         test_vec: Vec<u8>,
     }
 
-    #[derive(Default, Serialize, Deserialize, Clone, Debug, Decode, Encode)]
+    #[derive(Default, Clone, Debug, Decode, Encode)]
     struct TestConfig2 {
         strings: String,
         vecs: Vec<u8>,
