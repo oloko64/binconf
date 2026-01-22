@@ -546,7 +546,7 @@ mod tests {
 
         assert_eq!(
             corrupted_data,
-            String::from_utf8_lossy(&new_data[HASH_BYTE_LENGTH..])
+            String::from_utf8_lossy(&new_data[HASH_BYTE_LENGTH + 1..])
         );
     }
 }
