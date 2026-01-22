@@ -1,7 +1,5 @@
-use crate::{ConfigError, ConfigLocation};
+use crate::{ConfigError, ConfigLocation, ConfigType};
 use std::{fs::read_to_string, io::Write};
-
-const JSON_EXTENSION: &str = "json";
 
 /// Loads a config file from the config, cache, cwd, or local data directory of the current user. In `json` format.
 ///
@@ -9,6 +7,12 @@ const JSON_EXTENSION: &str = "json";
 ///
 /// If the flag `reset_conf_on_err` is set to `true`, the config file will be reset to the default config if
 /// the deserialization fails, if set to `false` an error will be returned.
+///
+/// # Errors
+///
+/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while deserializing the config.
+///
+/// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
 ///
 /// # Example
 ///
@@ -25,12 +29,6 @@ const JSON_EXTENSION: &str = "json";
 /// let config = binconf::load_json::<TestConfig>("test-binconf-read-json", None, Config, false).unwrap();
 /// assert_eq!(config, TestConfig::default());
 /// ```
-///
-/// # Errors
-///
-/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while deserializing the config.
-///
-/// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
 pub fn load_json<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
@@ -43,29 +41,29 @@ where
     let config_file_path = crate::config_location(
         app_name.as_ref(),
         config_name.into(),
-        JSON_EXTENSION,
+        ConfigType::Json.as_str(),
         location.as_ref(),
     )?;
 
     let save_default_conf = || {
         let default_config = T::default();
-        let json_str = serde_json::to_string_pretty(&default_config).map_err(ConfigError::Json)?;
+        let json_str = serde_json::to_string_pretty(&default_config)?;
         crate::save_config_str(&config_file_path, &json_str)?;
         Ok(default_config)
     };
 
-    if !config_file_path.try_exists().map_err(ConfigError::Io)? {
+    if !config_file_path.try_exists()? {
         return save_default_conf();
     }
 
-    let json_str = read_to_string(&config_file_path).map_err(ConfigError::Io)?;
-    let config = match serde_json::from_str::<T>(&json_str).map_err(ConfigError::Json) {
+    let json_str = read_to_string(&config_file_path)?;
+    let config = match serde_json::from_str::<T>(&json_str) {
         Ok(config) => config,
         Err(err) => {
             if reset_conf_on_err {
                 return save_default_conf();
             }
-            return Err(err);
+            return Err(err.into());
         }
     };
 
@@ -75,6 +73,10 @@ where
 /// Stores a config file in the config, cache, cwd, or local data directory of the current user. In `json` format.
 ///
 /// It will store a config file, serializing it with the `serde_json` crate.
+///
+/// # Errors
+///
+/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while serializing the config.
 ///
 /// # Example
 ///
@@ -98,10 +100,6 @@ where
 /// let config = binconf::load_json::<TestConfig>("test-binconf-store-json", None, Config, false).unwrap();
 /// assert_eq!(config, test_config);
 /// ```
-///
-/// # Errors
-///
-/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while serializing the config.
 pub fn store_json<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
@@ -114,17 +112,15 @@ where
     let config_file_path = crate::config_location(
         app_name.as_ref(),
         config_name.into(),
-        JSON_EXTENSION,
+        ConfigType::Json.as_str(),
         location.as_ref(),
     )?;
 
-    let mut file =
-        std::io::BufWriter::new(std::fs::File::create(config_file_path).map_err(ConfigError::Io)?);
+    let mut file = std::io::BufWriter::new(std::fs::File::create(config_file_path)?);
 
-    let json_str = serde_json::to_string_pretty(&data).map_err(ConfigError::Json)?;
+    let json_str = serde_json::to_string_pretty(&data)?;
 
-    file.write_all(json_str.as_bytes())
-        .map_err(ConfigError::Io)?;
+    file.write_all(json_str.as_bytes())?;
 
     Ok(())
 }

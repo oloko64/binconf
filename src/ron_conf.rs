@@ -1,7 +1,5 @@
-use crate::{ConfigError, ConfigLocation};
+use crate::{ConfigError, ConfigLocation, ConfigType};
 use std::{fs::read_to_string, io::Write};
-
-const RON_EXTENSION: &str = "ron";
 
 /// Loads a config file from the config, cache, cwd, or local data directory of the current user. In `ron` format.
 ///
@@ -9,6 +7,12 @@ const RON_EXTENSION: &str = "ron";
 ///
 /// If the flag `reset_conf_on_err` is set to `true`, the config file will be reset to the default config if
 /// the deserialization fails, if set to `false` an error will be returned.
+///
+/// # Errors
+///
+/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while deserializing the config.
+///
+/// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
 ///
 /// # Example
 ///
@@ -25,12 +29,6 @@ const RON_EXTENSION: &str = "ron";
 /// let config = binconf::load_ron::<TestConfig>("test-binconf-read-ron", None, Config, false).unwrap();
 /// assert_eq!(config, TestConfig::default());
 /// ```
-///
-/// # Errors
-///
-/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while deserializing the config.
-///
-/// If the flag `reset_conf_on_err` is set to `false` and the deserialization fails, an error will be returned. If it is set to `true` the config file will be reset to the default config.
 pub fn load_ron<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
@@ -43,7 +41,7 @@ where
     let config_file_path = crate::config_location(
         app_name.as_ref(),
         config_name.into(),
-        RON_EXTENSION,
+        ConfigType::Ron.as_str(),
         location.as_ref(),
     )?;
 
@@ -52,24 +50,23 @@ where
         let ser_config = ron::ser::PrettyConfig::new()
             .depth_limit(4)
             .indentor("\t".to_owned());
-        let ron_str =
-            ron::ser::to_string_pretty(&default_config, ser_config).map_err(ConfigError::RonSer)?;
+        let ron_str = ron::ser::to_string_pretty(&default_config, ser_config)?;
         crate::save_config_str(&config_file_path, &ron_str)?;
         Ok(default_config)
     };
 
-    if !config_file_path.try_exists().map_err(ConfigError::Io)? {
+    if !config_file_path.try_exists()? {
         return save_default_conf();
     }
 
-    let ron_str = read_to_string(&config_file_path).map_err(ConfigError::Io)?;
-    let config = match ron::from_str::<T>(&ron_str).map_err(ConfigError::RonDe) {
+    let ron_str = read_to_string(&config_file_path)?;
+    let config = match ron::from_str::<T>(&ron_str) {
         Ok(config) => config,
         Err(err) => {
             if reset_conf_on_err {
                 return save_default_conf();
             }
-            return Err(err);
+            return Err(err.into());
         }
     };
 
@@ -79,6 +76,10 @@ where
 /// Stores a config file in the config, cache, cwd, or local data directory of the current user. In `ron` format.
 ///
 /// It will store a config file, serializing it with the `serde_ron` crate.
+///
+/// # Errors
+///
+/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while serializing the config.
 ///
 /// # Example
 ///
@@ -102,10 +103,6 @@ where
 /// let config = binconf::load_ron::<TestConfig>("test-binconf-store-ron", None, Config, false).unwrap();
 /// assert_eq!(config, test_config);
 /// ```
-///
-/// # Errors
-///
-/// This function will return an error if the config, cache or local data directory could not be found or created, or if something went wrong while serializing the config.
 pub fn store_ron<'a, T>(
     app_name: impl AsRef<str>,
     config_name: impl Into<Option<&'a str>>,
@@ -118,20 +115,18 @@ where
     let config_file_path = crate::config_location(
         app_name.as_ref(),
         config_name.into(),
-        RON_EXTENSION,
+        ConfigType::Ron.as_str(),
         location.as_ref(),
     )?;
 
-    let mut file =
-        std::io::BufWriter::new(std::fs::File::create(config_file_path).map_err(ConfigError::Io)?);
+    let mut file = std::io::BufWriter::new(std::fs::File::create(config_file_path)?);
 
     let ser_config = ron::ser::PrettyConfig::new()
         .depth_limit(4)
         .indentor("\t".to_owned());
-    let ron_str = ron::ser::to_string_pretty(&data, ser_config).map_err(ConfigError::RonSer)?;
+    let ron_str = ron::ser::to_string_pretty(&data, ser_config)?;
 
-    file.write_all(ron_str.as_bytes())
-        .map_err(ConfigError::Io)?;
+    file.write_all(ron_str.as_bytes())?;
 
     Ok(())
 }
