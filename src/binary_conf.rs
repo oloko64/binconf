@@ -24,8 +24,9 @@ pub use bitcode::{Decode, DecodeOwned, Encode};
 ///
 /// ```
 /// use binconf::ConfigLocation::{Cache, Config, LocalData, Cwd};
+/// use binconf::{Encode, Decode};
 ///
-/// #[derive(Default, PartialEq, Debug)]
+/// #[derive(Default, PartialEq, Debug, Encode, Decode)]
 /// struct TestConfig {
 ///    test: String,
 ///    test_vec: Vec<u8>,
@@ -76,8 +77,9 @@ where
 ///
 /// ```
 /// use binconf::ConfigLocation::{Cache, Config, LocalData, Cwd};
+/// use binconf::{Encode, Decode};
 ///
-/// #[derive(Default, PartialEq, Debug)]
+/// #[derive(Default, PartialEq, Debug, Encode, Decode)]
 /// struct TestConfig {
 ///    test: String,
 ///    test_vec: Vec<u8>,
@@ -187,8 +189,9 @@ where
 ///
 /// ```
 /// use binconf::ConfigLocation::{Cache, Config, LocalData, Cwd};
+/// use binconf::{Encode, Decode};
 ///
-/// #[derive(Default, PartialEq, Debug, Encode)]
+/// #[derive(Default, PartialEq, Debug, Encode, Decode)]
 /// struct TestConfig {
 ///   test: String,
 ///   test_vec: Vec<u8>,
