@@ -265,9 +265,9 @@ impl From<serde_json::Error> for ConfigError {
 }
 
 #[cfg(feature = "binary-conf")]
-impl From<bincode::Error> for ConfigError {
-    fn from(err: bincode::Error) -> Self {
-        ConfigError::Bincode(err)
+impl From<bitcode::Error> for ConfigError {
+    fn from(err: bitcode::Error) -> Self {
+        ConfigError::Bitcode(err)
     }
 }
 
@@ -301,7 +301,7 @@ impl std::error::Error for ConfigError {
             ConfigError::RonDe(err) => Some(err),
 
             #[cfg(feature = "binary-conf")]
-            ConfigError::Bincode(err) => Some(err),
+            ConfigError::Bitcode(err) => Some(err),
 
             #[cfg(feature = "binary-conf")]
             ConfigError::HashMismatch => None,

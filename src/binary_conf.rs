@@ -42,7 +42,8 @@ pub fn load_bin<'a, T>(
     reset_conf_on_err: bool,
 ) -> Result<T, ConfigError>
 where
-    T: Default + serde::Serialize + serde::de::DeserializeOwned,
+    T: Default + Encode,
+    for<'de> T: Decode<'de>,
 {
     load_bin_internal(
         app_name.as_ref(),
@@ -115,7 +116,8 @@ fn load_bin_internal<T>(
     skip_hash_check: bool,
 ) -> Result<T, ConfigError>
 where
-    T: Default + serde::Serialize + serde::de::DeserializeOwned,
+    T: Default + Encode,
+    for<'de> T: Decode<'de>,
 {
     let config_file_path =
         crate::config_location(app_name, config_name, ConfigType::Bin.as_str(), location)?;
@@ -263,7 +265,7 @@ where
     T: bitcode::Encode,
 {
     // Create a buffer with 16 bytes zeroed out, and append the serialized data to it.
-    let mut full_data = [vec![0; HASH_BYTE_LENGTH], bincode::serialize(&data)?].concat();
+    let mut full_data = [vec![0; HASH_BYTE_LENGTH], bitcode::encode(data)].concat();
     // Calculate the `xxh3_128` hash of the serialized data.
 
     let hash = &xxh3_128(&full_data[HASH_BYTE_LENGTH..]).to_le_bytes()[..];
