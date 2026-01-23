@@ -57,16 +57,15 @@ use std::path::PathBuf;
 /// println!("The configuration file is located at: {}", config_path.display());
 /// ```
 ///
-
-pub fn get_configuration_path<'a>(
+pub fn get_configuration_path(
     app_name: impl AsRef<str>,
-    config_name: impl Into<Option<&'a str>>,
+    config_name: Option<&str>,
     config_extension: impl AsRef<ConfigType>,
     location: impl AsRef<ConfigLocation>,
 ) -> Result<PathBuf, ConfigError> {
     config_location(
         app_name.as_ref(),
-        config_name.into(),
+        config_name,
         config_extension.as_ref().as_str(),
         location.as_ref(),
     )
@@ -134,6 +133,7 @@ pub enum ConfigType {
 }
 
 impl ConfigType {
+    #[must_use]
     pub fn as_str(&self) -> &str {
         match self {
             #[cfg(feature = "toml-conf")]

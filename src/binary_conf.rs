@@ -35,9 +35,9 @@ pub use bitcode::{Decode, DecodeOwned, Encode};
 /// let config = binconf::load_bin::<TestConfig>("test-binconf-read-bin", None, Config, false).unwrap();
 /// assert_eq!(config, TestConfig::default());
 /// ```
-pub fn load_bin<'a, T>(
+pub fn load_bin<T>(
     app_name: impl AsRef<str>,
-    config_name: impl Into<Option<&'a str>>,
+    config_name: Option<&str>,
     location: impl AsRef<ConfigLocation>,
     reset_conf_on_err: bool,
 ) -> Result<T, ConfigError>
@@ -47,7 +47,7 @@ where
 {
     load_bin_internal(
         app_name.as_ref(),
-        config_name.into(),
+        config_name,
         location.as_ref(),
         reset_conf_on_err,
         false,
@@ -89,9 +89,9 @@ where
 ///
 /// assert_eq!(config, TestConfig::default());
 /// ```
-pub fn load_bin_skip_check<'a, T>(
+pub fn load_bin_skip_check<T>(
     app_name: impl AsRef<str>,
-    config_name: impl Into<Option<&'a str>>,
+    config_name: Option<&str>,
     location: impl AsRef<ConfigLocation>,
     reset_conf_on_err: bool,
 ) -> Result<T, ConfigError>
@@ -101,7 +101,7 @@ where
 {
     load_bin_internal(
         app_name.as_ref(),
-        config_name.into(),
+        config_name,
         location.as_ref(),
         reset_conf_on_err,
         true,
@@ -126,7 +126,7 @@ where
         let default_config = T::default();
         let mut file = std::io::BufWriter::new(std::fs::File::create(&config_file_path)?);
 
-        let full_data = prepare_serialized_data(&default_config)?;
+        let full_data = prepare_serialized_data(&default_config);
         file.write_all(&full_data)?;
 
         Ok(default_config)
@@ -207,25 +207,24 @@ where
 /// let config = binconf::load_bin::<TestConfig>("test-binconf-store-bin", None, Config, false).unwrap();
 /// assert_eq!(config, test_config);
 /// ```
-pub fn store_bin<'a, T>(
+pub fn store_bin<T>(
     app_name: impl AsRef<str>,
-    config_name: impl Into<Option<&'a str>>,
+    config_name: Option<&str>,
     location: impl AsRef<ConfigLocation>,
     data: &T,
 ) -> Result<(), ConfigError>
 where
-    for<'e> T: Encode,
+    T: Encode,
 {
     let config_file_path = crate::config_location(
         app_name.as_ref(),
-        config_name.into(),
+        config_name.as_ref().map(AsRef::as_ref),
         ConfigType::Bin.as_str(),
         location.as_ref(),
     )?;
 
     let mut file = std::io::BufWriter::new(std::fs::File::create(config_file_path)?);
-
-    let full_data = prepare_serialized_data(data)?;
+    let full_data = prepare_serialized_data(data);
 
     file.write_all(&full_data[..])?;
 
@@ -260,7 +259,7 @@ fn get_hash_from_file_and_data(data: &[u8]) -> (&[u8], Vec<u8>) {
 /// Returns the binary data with the hash prepended.
 ///
 /// The first `64 bits (16 bytes)` of the data will be the `xxh3_128` hash of the data, the rest of the data will be the serialized data.
-fn prepare_serialized_data<T>(data: &T) -> Result<Vec<u8>, ConfigError>
+fn prepare_serialized_data<T>(data: &T) -> Vec<u8>
 where
     T: bitcode::Encode,
 {
@@ -274,7 +273,7 @@ where
     // This function will panic if the two slices have different lengths.
     full_data[..HASH_BYTE_LENGTH].clone_from_slice(hash);
 
-    Ok(full_data)
+    full_data
 }
 
 #[cfg(test)]
@@ -328,7 +327,7 @@ mod tests {
 
         store_bin(
             "test-binconf-read_default_config-struct-bin",
-            None,
+            None::<&str>,
             Config,
             &test_config,
         )

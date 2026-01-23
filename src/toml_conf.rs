@@ -29,9 +29,9 @@ use std::{fs::read_to_string, io::Write};
 /// let config = binconf::load_toml::<TestConfig>("test-binconf-read-toml", None, Config, false).unwrap();
 /// assert_eq!(config, TestConfig::default());
 /// ```
-pub fn load_toml<'a, T>(
+pub fn load_toml<T>(
     app_name: impl AsRef<str>,
-    config_name: impl Into<Option<&'a str>>,
+    config_name: Option<&str>,
     location: impl AsRef<ConfigLocation>,
     reset_conf_on_err: bool,
 ) -> Result<T, ConfigError>
@@ -40,7 +40,7 @@ where
 {
     let config_file_path = crate::config_location(
         app_name.as_ref(),
-        config_name.into(),
+        config_name,
         ConfigType::Toml.as_str(),
         location.as_ref(),
     )?;
@@ -100,9 +100,9 @@ where
 /// let config = binconf::load_toml::<TestConfig>("test-binconf-store-toml", None, Config, false).unwrap();
 /// assert_eq!(config, test_config);
 /// ```
-pub fn store_toml<'a, T>(
+pub fn store_toml<T>(
     app_name: impl AsRef<str>,
-    config_name: impl Into<Option<&'a str>>,
+    config_name: Option<&str>,
     location: impl AsRef<ConfigLocation>,
     data: T,
 ) -> Result<(), ConfigError>
@@ -111,7 +111,7 @@ where
 {
     let config_file_path = crate::config_location(
         app_name.as_ref(),
-        config_name.into(),
+        config_name,
         ConfigType::Toml.as_str(),
         location.as_ref(),
     )?;
