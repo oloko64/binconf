@@ -29,9 +29,9 @@ use std::{fs::read_to_string, io::Write};
 /// let config = binconf::load_ron::<TestConfig>("test-binconf-read-ron", None, Config, false).unwrap();
 /// assert_eq!(config, TestConfig::default());
 /// ```
-pub fn load_ron<'a, T>(
+pub fn load_ron<T>(
     app_name: impl AsRef<str>,
-    config_name: impl Into<Option<&'a str>>,
+    config_name: Option<&str>,
     location: impl AsRef<ConfigLocation>,
     reset_conf_on_err: bool,
 ) -> Result<T, ConfigError>
@@ -40,7 +40,7 @@ where
 {
     let config_file_path = crate::config_location(
         app_name.as_ref(),
-        config_name.into(),
+        config_name,
         ConfigType::Ron.as_str(),
         location.as_ref(),
     )?;
@@ -103,9 +103,9 @@ where
 /// let config = binconf::load_ron::<TestConfig>("test-binconf-store-ron", None, Config, false).unwrap();
 /// assert_eq!(config, test_config);
 /// ```
-pub fn store_ron<'a, T>(
+pub fn store_ron<T>(
     app_name: impl AsRef<str>,
-    config_name: impl Into<Option<&'a str>>,
+    config_name: Option<&str>,
     location: impl AsRef<ConfigLocation>,
     data: T,
 ) -> Result<(), ConfigError>
@@ -114,7 +114,7 @@ where
 {
     let config_file_path = crate::config_location(
         app_name.as_ref(),
-        config_name.into(),
+        config_name,
         ConfigType::Ron.as_str(),
         location.as_ref(),
     )?;

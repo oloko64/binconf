@@ -5,6 +5,8 @@ use crate::{ConfigError, ConfigLocation, ConfigType};
 
 const HASH_BYTE_LENGTH: usize = 16;
 
+pub use bitcode::{Decode, DecodeOwned, Encode};
+
 /// Loads a config file from the config, cache, cwd, or local data directory of the current user. In `binary` format.
 ///
 /// It will load a config file, deserialize it and return it.
@@ -22,9 +24,9 @@ const HASH_BYTE_LENGTH: usize = 16;
 ///
 /// ```
 /// use binconf::ConfigLocation::{Cache, Config, LocalData, Cwd};
-/// use serde::{Deserialize, Serialize};
+/// use binconf::{Encode, Decode};
 ///
-/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
+/// #[derive(Default, PartialEq, Debug, Encode, Decode)]
 /// struct TestConfig {
 ///    test: String,
 ///    test_vec: Vec<u8>,
@@ -33,18 +35,19 @@ const HASH_BYTE_LENGTH: usize = 16;
 /// let config = binconf::load_bin::<TestConfig>("test-binconf-read-bin", None, Config, false).unwrap();
 /// assert_eq!(config, TestConfig::default());
 /// ```
-pub fn load_bin<'a, T>(
+pub fn load_bin<T>(
     app_name: impl AsRef<str>,
-    config_name: impl Into<Option<&'a str>>,
+    config_name: Option<&str>,
     location: impl AsRef<ConfigLocation>,
     reset_conf_on_err: bool,
 ) -> Result<T, ConfigError>
 where
-    T: Default + serde::Serialize + serde::de::DeserializeOwned,
+    T: Default + Encode,
+    for<'de> T: Decode<'de>,
 {
     load_bin_internal(
         app_name.as_ref(),
-        config_name.into(),
+        config_name,
         location.as_ref(),
         reset_conf_on_err,
         false,
@@ -74,9 +77,9 @@ where
 ///
 /// ```
 /// use binconf::ConfigLocation::{Cache, Config, LocalData, Cwd};
-/// use serde::{Deserialize, Serialize};
+/// use binconf::{Encode, Decode};
 ///
-/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
+/// #[derive(Default, PartialEq, Debug, Encode, Decode)]
 /// struct TestConfig {
 ///    test: String,
 ///    test_vec: Vec<u8>,
@@ -86,18 +89,19 @@ where
 ///
 /// assert_eq!(config, TestConfig::default());
 /// ```
-pub fn load_bin_skip_check<'a, T>(
+pub fn load_bin_skip_check<T>(
     app_name: impl AsRef<str>,
-    config_name: impl Into<Option<&'a str>>,
+    config_name: Option<&str>,
     location: impl AsRef<ConfigLocation>,
     reset_conf_on_err: bool,
 ) -> Result<T, ConfigError>
 where
-    T: Default + serde::Serialize + serde::de::DeserializeOwned,
+    T: Default + Encode,
+    for<'de> T: Decode<'de>,
 {
     load_bin_internal(
         app_name.as_ref(),
-        config_name.into(),
+        config_name,
         location.as_ref(),
         reset_conf_on_err,
         true,
@@ -112,7 +116,8 @@ fn load_bin_internal<T>(
     skip_hash_check: bool,
 ) -> Result<T, ConfigError>
 where
-    T: Default + serde::Serialize + serde::de::DeserializeOwned,
+    T: Default + Encode,
+    for<'de> T: Decode<'de>,
 {
     let config_file_path =
         crate::config_location(app_name, config_name, ConfigType::Bin.as_str(), location)?;
@@ -121,7 +126,7 @@ where
         let default_config = T::default();
         let mut file = std::io::BufWriter::new(std::fs::File::create(&config_file_path)?);
 
-        let full_data = prepare_serialized_data(&default_config)?;
+        let full_data = prepare_serialized_data(&default_config);
         file.write_all(&full_data)?;
 
         Ok(default_config)
@@ -158,13 +163,13 @@ where
 
     // The first 16 bytes are the `xxh3_128` hash, the rest is the serialized data
     let binary_data_without_hash = &data[HASH_BYTE_LENGTH..];
-    let config: T = match bincode::deserialize_from(binary_data_without_hash) {
+    let config: T = match bitcode::decode(binary_data_without_hash) {
         Ok(config) => config,
         Err(err) => {
             if reset_conf_on_err {
                 save_default_conf()?
             } else {
-                return Err(ConfigError::Bincode(err));
+                return Err(ConfigError::Bitcode(err));
             }
         }
     };
@@ -184,9 +189,9 @@ where
 ///
 /// ```
 /// use binconf::ConfigLocation::{Cache, Config, LocalData, Cwd};
-/// use serde::{Deserialize, Serialize};
+/// use binconf::{Encode, Decode};
 ///
-/// #[derive(Default, Serialize, Deserialize, PartialEq, Debug)]
+/// #[derive(Default, PartialEq, Debug, Encode, Decode)]
 /// struct TestConfig {
 ///   test: String,
 ///   test_vec: Vec<u8>,
@@ -202,25 +207,24 @@ where
 /// let config = binconf::load_bin::<TestConfig>("test-binconf-store-bin", None, Config, false).unwrap();
 /// assert_eq!(config, test_config);
 /// ```
-pub fn store_bin<'a, T>(
+pub fn store_bin<T>(
     app_name: impl AsRef<str>,
-    config_name: impl Into<Option<&'a str>>,
+    config_name: Option<&str>,
     location: impl AsRef<ConfigLocation>,
-    data: T,
+    data: &T,
 ) -> Result<(), ConfigError>
 where
-    T: serde::Serialize,
+    T: Encode,
 {
     let config_file_path = crate::config_location(
         app_name.as_ref(),
-        config_name.into(),
+        config_name.as_ref().map(AsRef::as_ref),
         ConfigType::Bin.as_str(),
         location.as_ref(),
     )?;
 
     let mut file = std::io::BufWriter::new(std::fs::File::create(config_file_path)?);
-
-    let full_data = prepare_serialized_data(data)?;
+    let full_data = prepare_serialized_data(data);
 
     file.write_all(&full_data[..])?;
 
@@ -255,12 +259,12 @@ fn get_hash_from_file_and_data(data: &[u8]) -> (&[u8], Vec<u8>) {
 /// Returns the binary data with the hash prepended.
 ///
 /// The first `64 bits (16 bytes)` of the data will be the `xxh3_128` hash of the data, the rest of the data will be the serialized data.
-fn prepare_serialized_data<T>(data: T) -> Result<Vec<u8>, ConfigError>
+fn prepare_serialized_data<T>(data: &T) -> Vec<u8>
 where
-    T: serde::Serialize,
+    T: bitcode::Encode,
 {
     // Create a buffer with 16 bytes zeroed out, and append the serialized data to it.
-    let mut full_data = [vec![0; HASH_BYTE_LENGTH], bincode::serialize(&data)?].concat();
+    let mut full_data = [vec![0; HASH_BYTE_LENGTH], bitcode::encode(data)].concat();
     // Calculate the `xxh3_128` hash of the serialized data.
 
     let hash = &xxh3_128(&full_data[HASH_BYTE_LENGTH..]).to_le_bytes()[..];
@@ -269,7 +273,7 @@ where
     // This function will panic if the two slices have different lengths.
     full_data[..HASH_BYTE_LENGTH].clone_from_slice(hash);
 
-    Ok(full_data)
+    full_data
 }
 
 #[cfg(test)]
@@ -280,16 +284,15 @@ mod tests {
 
     use crate::get_configuration_path;
 
-    use serde::{Deserialize, Serialize};
     use ConfigLocation::{Cache, Config, Cwd, LocalData};
 
-    #[derive(Default, Serialize, Deserialize, PartialEq, Debug, Clone)]
+    #[derive(Default, PartialEq, Debug, Clone, Encode, Decode)]
     struct TestConfig {
         test: String,
         test_vec: Vec<u8>,
     }
 
-    #[derive(Default, Serialize, Deserialize, Clone, Debug)]
+    #[derive(Default, Clone, Debug, Decode, Encode)]
     struct TestConfig2 {
         strings: String,
         vecs: Vec<u8>,
@@ -324,7 +327,7 @@ mod tests {
 
         store_bin(
             "test-binconf-read_default_config-struct-bin",
-            None,
+            None::<&str>,
             Config,
             &test_config,
         )
@@ -543,6 +546,6 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(corrupted_data, String::from_utf8_lossy(&new_data[24..]));
+        assert_eq!(corrupted_data, "test of corrupted dato");
     }
 }

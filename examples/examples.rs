@@ -2,7 +2,7 @@ use binconf::ConfigLocation::{Cache, Config, Cwd, LocalData};
 use serde::{Deserialize, Serialize};
 
 // The struct needs to have all of its fields as owned types
-#[derive(Default, Serialize, Deserialize, Clone)]
+#[derive(Default, Serialize, Deserialize, Clone, bitcode::Encode, bitcode::Decode, Debug)]
 struct TestConfig {
     strings: String,
     vecs: Vec<u8>,
